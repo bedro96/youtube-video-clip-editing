@@ -93,12 +93,20 @@ Key conventions this pipeline relies on — preserve them when editing:
 One line per run, in allocation order, using exactly this shape:
 
 ```
-NNN - <origin>
+NNN - <origin>[ [trim HH:MM:SS-HH:MM:SS]]
 ```
 
 - `NNN` is zero-padded 3 digits (`001`, `002`, ..., `999`).
 - `<origin>` is the YouTube URL for downloaded clips, or the local file path
   for clips sourced from disk.
+- **Trim suffix (optional).** When only a section of the source was used,
+  append ` [trim HH:MM:SS-HH:MM:SS]`. The orchestrator has no trim feature,
+  so trimmed runs are produced by downloading the section first
+  (`yt-dlp --download-sections "*HH:MM:SS-HH:MM:SS" --force-keyframes-at-cuts`)
+  and then feeding that local file to the script. The script will log the
+  temporary local path as origin — **rewrite that line** so the origin traces
+  back to the YouTube URL plus the trim range, otherwise the provenance is
+  lost when the temp file is deleted.
 - No other columns, no headers, no blank lines between entries.
 
 Example:
@@ -106,7 +114,7 @@ Example:
 ```
 001 - https://www.youtube.com/watch?v=abc123
 002 - /Users/me/Videos/keynote.mp4
-003 - https://www.youtube.com/watch?v=xyz789
+003 - https://www.youtube.com/watch?v=xyz789 [trim 00:01:30-00:59:51]
 ```
 
 To pick the next id, read the file, parse the leading integer of each line,

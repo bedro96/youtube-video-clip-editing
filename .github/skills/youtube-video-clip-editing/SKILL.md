@@ -280,5 +280,8 @@ Example:
 - Bumper with no audio track: the script auto-synthesizes silent AAC during normalization.
 - Concurrent runs: `MEMORY.md` allocation is guarded by `flock` when available; the per-run `work/NNN/` subfolder also prevents intermediates from different runs colliding.
 - Local file source: the script copies it to `work/NNN/sourceNNN.mp4` and logs the absolute path as origin in `MEMORY.md`.
+- Trimmed source: the script has no trim option. Download the section first with `yt-dlp --download-sections "*HH:MM:SS-HH:MM:SS" --force-keyframes-at-cuts`, feed that file in as a local source, then rewrite the `MEMORY.md` line as `NNN - <youtube_url> [trim HH:MM:SS-HH:MM:SS]` so provenance survives deletion of the temp file.
+- Concurrent runs without `flock`: run-id allocation is racy. Give each concurrent run its own pre-seeded `MEMORY_FILE` (seeded so it deterministically allocates the id you want), then merge the registries afterwards.
+- Large deliverables: `outcome/*.mp4` is tracked with Git LFS because GitHub rejects files over 100 MB and hour-long 1080p runs reach ~300 MB.
 - Adding a new product name: append to `CORRECTIONS` in `scripts/correct_terms.py`. Longer phrases must come before their single-word components (e.g. `microsoft azure` before `microsoft`).
 - Tuning the 2-line budget: adjust `LINE_UNITS` in `scripts/wrap_srt.py` (default `46` display units; CJK chars count as 2).

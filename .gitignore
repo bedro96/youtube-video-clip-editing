@@ -9,3 +9,6 @@ work/
 
 # Python bytecode cache
 __pycache__/
+
+# Agent scratch dirs
+.run*/

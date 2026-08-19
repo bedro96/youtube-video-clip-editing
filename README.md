@@ -119,6 +119,37 @@ If you only have one branding clip, omit the outro argument; the orchestrator re
 
 You can pass a local `.mp4` path in place of a YouTube URL. The orchestrator logs that path as `<origin>` in `/MEMORY.md`.
 
+### Trimming a source (using only part of a video)
+
+The orchestrator has no trim option. To localize only a section, download that section first and feed the resulting file in as a local source:
+
+```bash
+yt-dlp --cookies-from-browser edge \
+  --extractor-args "youtube:player_client=web,mweb" \
+  -f "bv*[height<=1080]+ba/b[height<=1080]" \
+  --merge-output-format mp4 \
+  --download-sections "*00:01:30-00:59:51" \
+  --force-keyframes-at-cuts \
+  -o "/tmp/trim/src.mp4" "<youtube_url>"
+
+.github/skills/youtube-video-clip-editing/scripts/produce_localized_clip.sh \
+  /tmp/trim/src.mp4 assets/ms-logo-intro.mp4 assets/ms-logo-outro.mp4
+```
+
+`--force-keyframes-at-cuts` makes the section boundaries frame-accurate. Afterwards, rewrite that run's `MEMORY.md` line so the origin points at the YouTube URL plus the range, e.g. `004 - <youtube_url> [trim 00:01:30-00:59:51]` — otherwise provenance is lost when the temp file is deleted.
+
+### Large deliverables and Git LFS
+
+Finished clips can be large (a ~1 hour 1080p run is ~300 MB). GitHub **rejects** any single file over 100 MB, so `outcome/*.mp4` is tracked with [Git LFS](https://git-lfs.github.com):
+
+```bash
+brew install git-lfs
+git lfs install
+git lfs track "outcome/*.mp4"   # already recorded in .gitattributes
+```
+
+Clone the repo with `git lfs pull` to fetch the actual videos. Note the free GitHub LFS tier is 1 GB of storage and 1 GB/month of bandwidth — if you accumulate many long runs you may need to buy a data pack or stop versioning `outcome/`.
+
 ### Orchestrator configuration
 
 The script accepts `AUTO_INSTALL_DEPS`, `COOKIE_BROWSER` (default `edge`), `WHISPER_MODEL` (default `small`), `SOURCE_LANG`/`TARGET_LANG` (defaults `en`/`ko`), `SUB_FONT`, `SUB_FONT_SIZE` (default **`24`**), `SUB_MARGIN_V` (default **`15`**), and `MEMORY_FILE`.
