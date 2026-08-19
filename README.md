@@ -17,6 +17,21 @@ It is a thin orchestrator. The skill defined in `.github/skills/youtube-video-cl
 
 ## How to use it with the GitHub Copilot CLI
 
+### Step 0 — Provision the machine (run this first, once)
+
+Before you give the pipeline its first real command, let Copilot CLI install the toolchain for you. Start the CLI in this repo and ask:
+
+```text
+copilot
+> Install prerequisite if not installed on this machine.
+```
+
+Copilot inspects what is already present and installs only what is missing — `yt-dlp`, the libass-enabled `ffmpeg` from the `homebrew-ffmpeg/ffmpeg` tap, and a project-local `.venv` holding `openai-whisper` and `deep-translator`. It then verifies the install by confirming the `subtitles` filter is available and running the Korean QA self-test.
+
+This is idempotent, so it is safe to re-run any time — after a machine reset, a Homebrew upgrade, or when a run fails with a missing-dependency error. The equivalent manual commands are in [Prerequisites](#prerequisites) below.
+
+> Provisioning does **not** sign you into YouTube. That step is manual and still required — see the banner at the top of this README.
+
 ### Natural-language prompt
 
 Start the Copilot CLI and describe the complete request at the `copilot` REPL:
@@ -138,7 +153,15 @@ You can also run QA standalone against an existing run:
 
 ### Prerequisites
 
-- **Sign into YouTube in Microsoft Edge before running the pipeline.** The `yt-dlp` step uses your Edge browser cookies (`--cookies-from-browser edge`) to fetch adaptive HD formats and to bypass DRM-flagged responses on other clients. If you're not signed in, downloads may return 403 or fall back to low-resolution (360p) muxed formats. If you use a different browser, sign in there and swap `edge` for `brave`, `chrome`, `chromium`, `firefox`, `opera`, `safari`, `vivaldi`, or `whale` in the command below.
+The fastest way to satisfy everything below is to let Copilot CLI do it — see [Step 0 — Provision the machine](#step-0--provision-the-machine-run-this-first-once):
+
+```text
+> Install prerequisite if not installed on this machine.
+```
+
+The manual equivalent, and what each piece is for:
+
+- **Sign into YouTube in Microsoft Edge before running the pipeline.** The `yt-dlp` step uses your Edge browser cookies (`--cookies-from-browser edge`) to fetch adaptive HD formats and to bypass DRM-flagged responses on other clients. If you're not signed in, downloads may return 403 or fall back to low-resolution (360p) muxed formats. If you use a different browser, sign in there and swap `edge` for `brave`, `chrome`, `chromium`, `firefox`, `opera`, `safari`, `vivaldi`, or `whale` in the command below. **This one is not automated — do it yourself.**
 - macOS with Homebrew.
 - `ffmpeg` from the `homebrew-ffmpeg/ffmpeg` tap. The regular `homebrew/core` ffmpeg lacks libass and the `subtitles` filter needed for subtitle burning.
 - `yt-dlp`.
