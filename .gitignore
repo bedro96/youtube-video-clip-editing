@@ -1,0 +1,8 @@
+# Python virtualenv (regenerate via: python3 -m venv .venv && .venv/bin/pip install openai-whisper deep-translator)
+.venv/
+
+# Scratch intermediates produced by the pipeline
+work/
+
+# macOS
+.DS_Store
