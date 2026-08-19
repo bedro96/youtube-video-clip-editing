@@ -2,6 +2,13 @@
 
 Copilot CLI skill: turn a YouTube URL into a Korean-subtitled clip bracketed by a Microsoft Azure intro/outro bumper — end-to-end, one prompt.
 
+> ⚠️ **Before you run: sign into YouTube in Microsoft Edge.**
+> The pipeline reuses your Microsoft Edge browser cookies (`yt-dlp --cookies-from-browser edge`) to fetch adaptive **HD 1080p** formats and bypass DRM-flagged responses on other YouTube clients. If you are not signed into YouTube in Edge, downloads may return HTTP 403 or fall back to the 360p muxed format (`-f 18`) — which will make the final clip look low-resolution.
+>
+> **Fix:** open Microsoft Edge, go to `https://www.youtube.com/`, and sign in with your Google account **once**. Copilot CLI + `yt-dlp` will reuse that Edge cookie cache automatically for every subsequent run. No API key is required.
+>
+> Prefer a different signed-in browser? Set `COOKIE_BROWSER=brave|chrome|chromium|firefox|opera|safari|vivaldi|whale` when invoking the script.
+
 ## What it does
 
 This repository helps localize and brand a source video clip into a shareable deliverable: it starts from a YouTube URL or local `.mp4`, transcribes English audio, corrects Microsoft/Azure/GitHub product-name spellings, translates to Korean while hard-capping every cue to at most 2 subtitle lines, burns the Korean subs in at FontSize 24, and wraps the result with Microsoft Azure intro/outro bumper clips.
@@ -40,12 +47,12 @@ The script registers the run in `MEMORY.md`, allocates the next `NNN`, creates a
 ```mermaid
 flowchart TD
     A[YouTube URL or local file] --> B[Step 1: Register run in /MEMORY.md<br/>allocate NNN, log 'NNN - origin'<br/>create work/NNN/]
-    B --> C[Step 2: youtube-downloader<br/>work/NNN/sourceNNN.mp4]
-    C --> D[Step 3: wjs-transcribing-audio<br/>work/NNN/sourceNNN.en.raw.srt]
+    B --> C[Step 2: youtube-downloader<br/>--cookies-from-browser edge<br/>work/NNN/sourceNNN.mp4]
+    C --> D[Step 3: wjs-transcribing-audio<br/>Whisper small, local<br/>work/NNN/sourceNNN.en.raw.srt]
     D --> E[Step 4: correct_terms.py<br/>Microsoft / Azure / GitHub / Copilot / .NET / VS Code<br/>work/NNN/sourceNNN.en.srt]
-    E --> F[Step 5: wjs-translating-subtitles + wrap_srt.py<br/>max 2 subtitle lines per cue<br/>work/NNN/sourceNNN.ko.srt]
-    G --> H[Step 6: wjs-burning-subtitles<br/>FontSize 24, MarginV 15 bottom-anchored<br/>Apple SD Gothic Neo, WrapStyle=2<br/>work/NNN/sourceNNN.subtitled.mp4]
-    G --> H[Step 7: video-processing-editing<br/>FFmpeg concat with intro + outro]
+    E --> F[Step 5: wjs-translating-subtitles + wrap_srt.py<br/>Google Translate + max 2 lines per cue<br/>work/NNN/sourceNNN.ko.srt]
+    F --> G[Step 6: wjs-burning-subtitles<br/>FontSize 24, MarginV 15 bottom-anchored<br/>Apple SD Gothic Neo, WrapStyle=2<br/>work/NNN/sourceNNN.subtitled.mp4]
+    G --> H[Step 7: video-processing-editing<br/>FFmpeg normalize + concat: intro + main + outro<br/>1920x1080 / 30 fps / libx264 / aac 48k]
     I[assets/ms-logo-intro.mp4] --> H
     J[assets/ms-logo-outro.mp4] --> H
     H --> K[outcome/final_outputNNN.mp4]
