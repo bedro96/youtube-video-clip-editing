@@ -66,6 +66,10 @@ Key conventions this pipeline relies on — preserve them when editing:
   and paired with the 2-line cap. Larger sizes will overflow 2 lines on
   medium-length Korean cues. Overrideable via `SUB_FONT_SIZE`, but the
   default in code and docs must stay `24`.
+- **Default subtitle vertical margin is `MarginV=15`** so the caption
+  block sits close to the bottom of the frame (YouTube-style burn-in
+  placement). Overrideable via `SUB_MARGIN_V`; keep the code + docs
+  default at `15` unless someone measurably justifies a different value.
 - **Final deliverable is `outcome/final_outputNNN.mp4` at the repo root**,
   using the same `NNN` allocated in Step 1.
 - **English audio is preserved** through Step 6; only the video track gets
@@ -126,7 +130,7 @@ writes `outcome/final_outputNNN.mp4`.
 Supported environment overrides are `AUTO_INSTALL_DEPS`, `COOKIE_BROWSER`
 (default `edge`), `WHISPER_MODEL` (default `small`), `SOURCE_LANG`/
 `TARGET_LANG` (defaults `en`/`ko`), `SUB_FONT`, `SUB_FONT_SIZE` (default
-**`24`**), and `MEMORY_FILE`.
+**`24`**), `SUB_MARGIN_V` (default **`15`**), and `MEMORY_FILE`.
 
 To test a single stage in isolation, first pick an `NNN` manually — either
 reuse an existing id from `/MEMORY.md` (to re-run a stage against an

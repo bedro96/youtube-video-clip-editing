@@ -25,6 +25,7 @@ SOURCE_LANG="${SOURCE_LANG:-en}"
 TARGET_LANG="${TARGET_LANG:-ko}"
 SUB_FONT="${SUB_FONT:-Apple SD Gothic Neo}"
 SUB_FONT_SIZE="${SUB_FONT_SIZE:-24}"
+SUB_MARGIN_V="${SUB_MARGIN_V:-15}"
 MEMORY_FILE="${MEMORY_FILE:-${repo_root}/MEMORY.md}"
 
 SOURCE_INPUT="$1"
@@ -230,9 +231,9 @@ echo "[info] Enforcing max 2 subtitle lines per cue..."
   "${WORK_DIR}/source${NNN}.${TARGET_LANG}.raw.srt" \
   "${WORK_DIR}/source${NNN}.${TARGET_LANG}.srt"
 
-echo "[6/7] Burning ${TARGET_LANG} subtitles into the video (FontSize=${SUB_FONT_SIZE}, max 2 lines)..."
+echo "[6/7] Burning ${TARGET_LANG} subtitles into the video (FontSize=${SUB_FONT_SIZE}, MarginV=${SUB_MARGIN_V}, max 2 lines)..."
 "${FFMPEG}" -y -i "${SOURCE_MP4}" \
-  -vf "subtitles=${WORK_DIR}/source${NNN}.${TARGET_LANG}.srt:force_style='FontName=${SUB_FONT},FontSize=${SUB_FONT_SIZE},PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=0,MarginV=30,WrapStyle=2'" \
+  -vf "subtitles=${WORK_DIR}/source${NNN}.${TARGET_LANG}.srt:force_style='FontName=${SUB_FONT},FontSize=${SUB_FONT_SIZE},PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=0,MarginV=${SUB_MARGIN_V},WrapStyle=2'" \
   -c:v libx264 -pix_fmt yuv420p -c:a copy \
   "${WORK_DIR}/source${NNN}.subtitled.mp4"
 

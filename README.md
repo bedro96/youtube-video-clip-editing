@@ -44,7 +44,7 @@ flowchart TD
     C --> D[Step 3: wjs-transcribing-audio<br/>work/NNN/sourceNNN.en.raw.srt]
     D --> E[Step 4: correct_terms.py<br/>Microsoft / Azure / GitHub / Copilot / .NET / VS Code<br/>work/NNN/sourceNNN.en.srt]
     E --> F[Step 5: wjs-translating-subtitles + wrap_srt.py<br/>max 2 subtitle lines per cue<br/>work/NNN/sourceNNN.ko.srt]
-    F --> G[Step 6: wjs-burning-subtitles<br/>FontSize 24, Apple SD Gothic Neo, WrapStyle=2<br/>work/NNN/sourceNNN.subtitled.mp4]
+    G --> H[Step 6: wjs-burning-subtitles<br/>FontSize 24, MarginV 15 bottom-anchored<br/>Apple SD Gothic Neo, WrapStyle=2<br/>work/NNN/sourceNNN.subtitled.mp4]
     G --> H[Step 7: video-processing-editing<br/>FFmpeg concat with intro + outro]
     I[assets/ms-logo-intro.mp4] --> H
     J[assets/ms-logo-outro.mp4] --> H
@@ -65,6 +65,7 @@ Each run gets its own `work/NNN/` folder. When you're done with a run and have t
 ## Subtitle rules (hard-coded)
 
 - **Default font size: 24.** Overrideable via `SUB_FONT_SIZE` but 24 is chosen deliberately.
+- **Bottom-anchored placement: `MarginV=15`.** Subtitles sit close to the bottom of the frame so the eye stays on the main image. Overrideable via `SUB_MARGIN_V`.
 - **Every cue is 2 lines maximum.** `scripts/wrap_srt.py` measures display width (CJK chars count as 2 units), targets ≤ 46 units per line, and either wraps to 2 lines or splits the cue in time.
 - **Product names are auto-corrected before translation.** `scripts/correct_terms.py` normalizes `Microsoft`, `Azure`, `GitHub`, `Copilot`, `Microsoft Azure`, `Azure OpenAI`, `GitHub Copilot`, `.NET`, `VS Code`, `Power BI`, `Microsoft 365`, `SQL Server`, `Windows`, `PowerShell`, `OpenAI`, `ChatGPT`, `TypeScript`, `JavaScript`, `Kubernetes`, `Docker`, `Linux`, `macOS`, and more, using case-insensitive matching and correctly-cased replacement.
 
@@ -113,7 +114,7 @@ You can pass a local `.mp4` path in place of a YouTube URL. The orchestrator log
 
 ### Orchestrator configuration
 
-The script accepts `AUTO_INSTALL_DEPS`, `COOKIE_BROWSER` (default `edge`), `WHISPER_MODEL` (default `small`), `SOURCE_LANG`/`TARGET_LANG` (defaults `en`/`ko`), `SUB_FONT`, `SUB_FONT_SIZE` (default **`24`**), and `MEMORY_FILE`.
+The script accepts `AUTO_INSTALL_DEPS`, `COOKIE_BROWSER` (default `edge`), `WHISPER_MODEL` (default `small`), `SOURCE_LANG`/`TARGET_LANG` (defaults `en`/`ko`), `SUB_FONT`, `SUB_FONT_SIZE` (default **`24`**), `SUB_MARGIN_V` (default **`15`**), and `MEMORY_FILE`.
 
 ### Authoritative spec
 

@@ -47,6 +47,7 @@ YouTube URL (or local file path)
 **Hard rules:**
 
 - Default subtitle font size is **24** and MUST NOT exceed 2 lines per cue.
+- Default vertical margin is **`MarginV=15`** so subtitles sit close to the bottom of the frame (bottom-anchored, YouTube-style burn-in).
 - Product names Microsoft, Azure, GitHub, Copilot, .NET, VS Code, etc. MUST be correctly capitalized (never generic-lowercased) before translation.
 
 ## Prerequisites
@@ -196,7 +197,7 @@ Burn at **FontSize=24** (default), with `WrapStyle=2` so libass never auto-wraps
 **Underlying command:**
 ```bash
 ffmpeg -y -i "work/${NNN}/source${NNN}.mp4" \
-  -vf "subtitles=work/${NNN}/source${NNN}.ko.srt:force_style='FontName=${SUB_FONT:-Apple SD Gothic Neo},FontSize=${SUB_FONT_SIZE:-24},PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=0,MarginV=30,WrapStyle=2'" \
+  -vf "subtitles=work/${NNN}/source${NNN}.ko.srt:force_style='FontName=${SUB_FONT:-Apple SD Gothic Neo},FontSize=${SUB_FONT_SIZE:-24},PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=0,MarginV=${SUB_MARGIN_V:-15},WrapStyle=2'" \
   -c:v libx264 -pix_fmt yuv420p -c:a copy \
   "work/${NNN}/source${NNN}.subtitled.mp4"
 ```
@@ -268,6 +269,7 @@ Example:
 - `TARGET_LANG`: translated subtitle language; default `ko`.
 - `SUB_FONT`: subtitle font family; default `Apple SD Gothic Neo`.
 - `SUB_FONT_SIZE`: subtitle font size for 1080p output; default **`24`**.
+- `SUB_MARGIN_V`: vertical margin from the bottom of the frame in ASS units; default **`15`** (subtitles sit close to the bottom of the screen; raise to nudge them upward).
 - `MEMORY_FILE`: run registry path; default `<repo_root>/MEMORY.md`.
 
 ## Notes / edge cases

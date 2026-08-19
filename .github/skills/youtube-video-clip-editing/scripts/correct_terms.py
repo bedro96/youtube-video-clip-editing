@@ -65,6 +65,7 @@ CORRECTIONS: list[tuple[str, str]] = [
     ("macos", "macOS"),
     ("ios", "iOS"),
     ("android", "Android"),
+    ("WorkAQ", "WorkIQ"),
 ]
 
 
