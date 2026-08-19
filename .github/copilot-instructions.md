@@ -69,7 +69,16 @@ Key conventions this pipeline relies on — preserve them when editing:
      English cue and case-sensitive** — capitalized `Fabric` is the product,
      lowercase `fabric` is the textile and must survive untouched. This is
      only safe because Step 4 already normalized English casing, so the two
-     lexicons must be kept in sync.
+     lexicons must be kept in sync. **A term missing from Step 4 silently
+     disables Step 6 for that term:** Whisper wrote "firing up playwright"
+     in lowercase, `correct_terms.py` had no `playwright` entry, so the gate
+     correctly declined and 극작가 shipped. The fix belonged in
+     `CORRECTIONS`, not `PRODUCTS`. When a mistranslation survives QA, check
+     the English SRT casing first.
+     Never add short or everyday words to `PRODUCTS` — `Go`, `Swift`, `Vue`,
+     `Arc` and `Node` are deliberately excluded because 가다/빠른/뷰/호/마디
+     are ordinary vocabulary. Korean matches are also left-anchored on a
+     Hangul boundary so 키워드 never becomes 키Word.
      Swapping a Korean noun for an English one also breaks particle
      agreement, so the script repairs it via `_ends_closed()`: closed-syllable
      words take 을/은/이/과/으로 (`Copilot을`), open-syllable words take

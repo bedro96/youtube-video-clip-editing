@@ -95,7 +95,6 @@ PRODUCTS: "dict[str, list[str]]" = {
     "Runbook": ["실행 책"],
     "Container Apps": ["컨테이너 앱"],
     "Playwright": ["극작가", "각본가", "플레이라이트"],
-    "Sentinel One": ["센티넬 원"],
     "Terraform": ["테라폼"],
     "Kusto": ["쿠스토"],
     "Grafana": ["그라파나"],
@@ -105,15 +104,15 @@ PRODUCTS: "dict[str, list[str]]" = {
     "Snowflake": ["눈송이"],
     "Databricks": ["데이터브릭스"],
     "Postman": ["우체부", "집배원"],
-    "Angular": ["각진", "앵귤러"],
-    "React": ["반응", "리액트"],
-    "Vue": ["뷰"],
-    "Node": ["마디", "노드"],
-    "Rust": ["녹", "러스트"],
-    "Go": ["가다"],
-    "Swift": ["신속한", "빠른"],
-    "Ruby": ["루비", "홍옥"],
+    "Angular": ["앵귤러"],
+    "React": ["리액트"],
+    "Rust": ["러스트"],
+    "Ruby": ["루비"],
 }
+# Deliberately NOT in the lexicon: Go, Swift, Vue, Arc, Node.
+# Their Korean forms (가다, 빠른, 뷰, 호, 마디) are everyday words or short
+# fragments of longer ones, so even a case-sensitive English gate produces
+# false positives -- "Go ahead and pick up the CLI" is not the Go language.
 
 # ---------------------------------------------------------------------------
 # Speech level normalization: 반말 / 한다체 / 해요체  ->  합쇼체 (높임말)
@@ -269,8 +268,14 @@ def _restore_products(ko: str, en: str) -> "tuple[str, list[str]]":
         if canonical not in en:
             continue
         for wrong in wrong_forms:
-            if wrong in ko:
-                ko = ko.replace(wrong, canonical)
+            # Left-anchored on a Hangul boundary so we never rewrite a
+            # fragment of a longer word: 키워드 must not yield 키Word, and
+            # 인터뷰 must not be touched. A trailing boundary is deliberately
+            # NOT required, because Korean particles attach directly to the
+            # noun (직물은, 직물을).
+            pattern = r"(?<![가-힣])" + re.escape(wrong)
+            if re.search(pattern, ko):
+                ko = re.sub(pattern, canonical, ko)
                 notes.append(f"{wrong} -> {canonical}")
     return ko, notes
 
@@ -420,7 +425,8 @@ def qa(en_path: Path, ko_path: Path, out_path: Path, report_path: "Path | None")
         # Report residual plain-form endings we did not dare auto-fix.
         for line in cue.lines:
             stripped = line.strip()
-            if stripped.rstrip(".!?\"')]…").endswith(NON_VERBAL_DA_TAILS):
+            bare = stripped.rstrip(".!?\"')]…")
+            if bare.endswith(NON_VERBAL_DA_TAILS) or _is_propositive(bare):
                 continue
             if PLAIN_TAIL.search(stripped) and not POLITE_TAIL.search(stripped):
                 flagged.append(
@@ -507,6 +513,9 @@ def self_test() -> int:
         # Playwright is a test tool, not a dramatist.
         ("We are burning down Playwright.", "극작가를 불태우고 있습니다.",
          "Playwright를 불태우고 있습니다."),
+        # A bad form must not be matched inside a longer Hangul word.
+        ("Give me the Word document.", "키워드를 알려주세요.", "키워드를 알려주세요."),
+        ("Fabric is great.", "패브릭이 좋습니다.", "Fabric이 좋습니다."),
     ]
 
     failures = 0

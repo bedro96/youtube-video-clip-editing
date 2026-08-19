@@ -99,6 +99,8 @@ Google Translate happily turns product names into common nouns. Real examples pu
 
 Restoration is **context-gated and case-sensitive**: a Korean word is only rewritten when the aligned English cue contains that product name capitalized. So "the **fabric** of the chair" keeps 직물, while "a **Fabric** workspace" becomes Fabric. This works because Step 4 has already normalized English casing.
 
+> **Steps 4 and 6 are coupled.** If a product name is missing from `correct_terms.py`, the English SRT keeps Whisper's lowercase spelling, the gate declines, and the mistranslation ships. This actually happened with `playwright` → 극작가. When a bad translation survives QA, check the English SRT casing before blaming the Korean lexicon — and add new terms to **both** scripts.
+
 Swapping a Korean noun for an English one also breaks Korean particle agreement, which the script repairs — 부조종사**를** becomes Copilot**을** (closed syllable) while 푸른**은** becomes Azure**는** (open syllable).
 
 ### 2. Inconsistent speech level (높임말)

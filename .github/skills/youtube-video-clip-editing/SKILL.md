@@ -217,7 +217,7 @@ Anything it cannot fix confidently is written to a report instead of being guess
 
 Then **read the report** and hand-fix anything it flagged. It lists every automatic rewrite, any cue still in plain form, and any cue where the English named a product that never made it into the Korean.
 
-Verify the QA rules themselves with `qa_ko_srt.py --self-test` (35 assertions).
+Verify the QA rules themselves with `qa_ko_srt.py --self-test` (37 assertions).
 
 **Output:** `work/NNN/sourceNNN.ko.srt` (product names correct, 높임말, every cue ≤ 2 lines) plus `work/NNN/sourceNNN.ko.qa-report.txt`.
 
@@ -322,6 +322,8 @@ Example:
 - Large deliverables: `outcome/*.mp4` is tracked with Git LFS because GitHub rejects files over 100 MB and hour-long 1080p runs reach ~300 MB.
 - Adding a new product name: append to `CORRECTIONS` in `scripts/correct_terms.py` (English casing, Step 4) **and** to `PRODUCTS` in `scripts/qa_ko_srt.py` (Korean mistranslations, Step 6). Longer phrases must come before their single-word components in both (e.g. `microsoft azure` before `microsoft`, `Azure Friday` before `Azure`).
 - A Korean word that is also a legitimate common noun (직물, 보초, 전망) is only rewritten when the aligned English cue contains the product name **capitalized**, so ordinary prose is never clobbered. If a product still slips through, check that Step 4 capitalized it in the English SRT first.
+- **Steps 4 and 6 are coupled — a term missing from Step 4 silently disables Step 6 for that term.** Real example: Whisper transcribed "It's firing up playwright." in lowercase; `correct_terms.py` had no `playwright` entry, so the English SRT kept it lowercase, so the case-sensitive gate in Step 6 correctly refused to rewrite 극작가 and the mistranslation shipped. Fixing it meant adding `playwright` to `CORRECTIONS`, not touching `PRODUCTS`. When a mistranslation survives QA, check the English SRT casing before suspecting the Korean lexicon.
+- Do not add short or everyday words to `PRODUCTS`. `Go`/`Swift`/`Vue`/`Arc`/`Node` are deliberately excluded because their Korean forms (가다, 빠른, 뷰, 호, 마디) are ordinary vocabulary or fragments of longer words — "Go ahead and pick up the CLI" is not the Go language. Korean matches are additionally left-anchored on a Hangul boundary so 키워드 never becomes 키Word.
 - Speech level: `qa_ko_srt.py` conjugates to 합쇼체 by jamo arithmetic, so new verbs need no configuration. Endings it must never touch (`~ㅂ시다` propositive, `~ㄴ가요?` interrogative, `~마다`, `~보다`) are listed in `NON_VERBAL_DA_TAILS` / `BOUNDARY_GUARDED` / `_is_propositive`.
 - After changing either lexicon or a conjugation rule, run `qa_ko_srt.py --self-test` before shipping.
 - Tuning the 2-line budget: adjust `LINE_UNITS` in `scripts/wrap_srt.py` (default `46` display units; CJK chars count as 2).
