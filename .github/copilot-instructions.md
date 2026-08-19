@@ -13,7 +13,7 @@ anything. The bash orchestrator
 `.github/skills/youtube-video-clip-editing/scripts/produce_localized_clip.sh`
 is the executable form of that spec; the two must stay in sync.
 
-## Pipeline (7 stages)
+## Pipeline (8 stages)
 
 ```
 YouTube URL (or local file path)
@@ -22,11 +22,12 @@ YouTube URL (or local file path)
   → (3) wjs-transcribing-audio       → work/NNN/sourceNNN.en.raw.srt
   → (4) product-name review          → work/NNN/sourceNNN.en.srt
         (Microsoft / Azure / GitHub / Copilot / .NET / VS Code ...)
-  → (5) wjs-translating-subtitles    → work/NNN/sourceNNN.ko.srt
-        (post-processed to max 2 subtitle lines per cue)
-  → (6) wjs-burning-subtitles        → work/NNN/sourceNNN.subtitled.mp4
+  → (5) wjs-translating-subtitles    → work/NNN/sourceNNN.ko.raw.srt
+  → (6) Korean translation QA        → work/NNN/sourceNNN.ko.srt
+        (product names restored, 높임말 enforced, then max 2 lines per cue)
+  → (7) wjs-burning-subtitles        → work/NNN/sourceNNN.subtitled.mp4
         (FontSize 24, Apple SD Gothic Neo, WrapStyle=2)
-  → (7) video-processing-editing     → outcome/final_outputNNN.mp4
+  → (8) video-processing-editing     → outcome/final_outputNNN.mp4
         (FFmpeg concat: intro + subtitled + outro)
 ```
 
@@ -37,7 +38,8 @@ Key conventions this pipeline relies on — preserve them when editing:
   do not pile files into a single `work/` root and are trivially cleanable
   (`rm -rf work/NNN`). Intermediate filenames still carry `NNN` for
   grep-ability: `sourceNNN.mp4`, `sourceNNN.en.raw.srt`, `sourceNNN.en.srt`,
-  `sourceNNN.ko.raw.srt`, `sourceNNN.ko.srt`, `sourceNNN.subtitled.mp4`,
+  `sourceNNN.ko.raw.srt`, `sourceNNN.ko.qa.srt`, `sourceNNN.ko.srt`,
+  `sourceNNN.ko.qa-report.txt`, `sourceNNN.subtitled.mp4`,
   `norm_NNN_{intro,main,outro}.mp4`, `concat_NNN.txt`. Every downstream
   stage substitutes the *same* `NNN` into the filename and folder — do not
   mix run ids across stages.
@@ -57,7 +59,34 @@ Key conventions this pipeline relies on — preserve them when editing:
   `Microsoft 365`, etc. are always properly cased. **Never treat these as
   generic tokens.** Add new terms to `CORRECTIONS` in that script, longer
   phrases before shorter ones (e.g. `microsoft azure` before `microsoft`).
-- **Step 5 hard-caps every cue to 2 subtitle lines.** `scripts/wrap_srt.py`
+- **Step 6 (Korean translation QA) is mandatory.** `scripts/qa_ko_srt.py`
+  runs between translation and wrapping, and fixes the two systematic
+  failures of machine translation on Microsoft content:
+  1. **Product names translated as common nouns.** Google Translate emits
+     `직물` for Fabric, `부조종사` for Copilot, `푸른 금요일` for Azure Friday,
+     `보초` for Sentinel, `극작가` for Playwright. The `PRODUCTS` lexicon
+     restores the English name. Restoration is **context-gated on the aligned
+     English cue and case-sensitive** — capitalized `Fabric` is the product,
+     lowercase `fabric` is the textile and must survive untouched. This is
+     only safe because Step 4 already normalized English casing, so the two
+     lexicons must be kept in sync.
+     Swapping a Korean noun for an English one also breaks particle
+     agreement, so the script repairs it via `_ends_closed()`: closed-syllable
+     words take 을/은/이/과/으로 (`Copilot을`), open-syllable words take
+     를/는/가/와/로 (`Azure는`).
+  2. **Inconsistent speech level.** Korean subtitles MUST be uniform
+     **높임말 (합쇼체)**. The script conjugates by Hangul jamo arithmetic, not
+     a word list, so unseen verbs are handled: no 받침 → `~ㅂ니다`
+     (하다→합니다), `ㄴ`/`ㄹ` 받침 → `~ㅂ니다` (간다→갑니다, 만들다→만듭니다),
+     any other 받침 → `~습니다` (있다→있습니다, 저질렀다→저질렀습니다).
+  **Never let the conjugator touch an already-polite ending.** `입니다`,
+  `습니다`, the propositive `~ㅂ시다` (봅시다), the interrogative `~ㄴ가요?`,
+  and the non-verbal tails `~마다` / `~보다` are all explicitly excluded —
+  each of those was a real bug that produced 입닙니다 / 봅십니다 / 필요한갑니다.
+  Anything the script cannot fix confidently goes into
+  `sourceNNN.ko.qa-report.txt` rather than being guessed at; read that report
+  after a run. Run `qa_ko_srt.py --self-test` after touching any rule.
+- **Step 6 hard-caps every cue to 2 subtitle lines.** `scripts/wrap_srt.py`
   measures display width in units (CJK = 2, other = 1), targets ≤ 46 units
   per line, and either wraps to 2 lines or splits the cue in time. This
   invariant is non-negotiable — do not weaken it or bump `LINE_UNITS` past
@@ -72,16 +101,16 @@ Key conventions this pipeline relies on — preserve them when editing:
   default at `15` unless someone measurably justifies a different value.
 - **Final deliverable is `outcome/final_outputNNN.mp4` at the repo root**,
   using the same `NNN` allocated in Step 1.
-- **English audio is preserved** through Step 6; only the video track gets
+- **English audio is preserved** through Step 7; only the video track gets
   Korean subs burned in. Do not add an audio-replacement step.
-- **Step 7 requires normalization first.** Intro, main, and outro must share
+- **Step 8 requires normalization first.** Intro, main, and outro must share
   codec/resolution/fps/audio-sample-rate before `ffmpeg -f concat -c copy`,
   or the output desyncs/corrupts. Current normalization target is
   `1920x1080 / 30 fps / libx264 yuv420p / aac 48 kHz stereo` — change all
   three inputs together, never just one.
 - **Sibling-skill script paths are relative**, resolved from the orchestrator
   as `$(dirname "$0")/../../<skill-name>/scripts/...`. Moving the script
-  breaks Steps 2 and 6.
+  breaks Steps 2 and 7.
 - **`set -euo pipefail`** in the orchestrator is intentional: any stage
   failure must abort so partial/garbage files never propagate downstream.
   Do not weaken this.
@@ -134,7 +163,18 @@ exist or is empty, the next id is `001`.
 ## Running / testing
 
 There is no build, unit-test, or lint tooling in this repo. Validation is
-end-to-end:
+mostly end-to-end, with one exception: the Korean QA rules have a built-in
+test suite, and it is fast. Run it after any change to `qa_ko_srt.py`:
+
+```bash
+.venv/bin/python .github/skills/youtube-video-clip-editing/scripts/qa_ko_srt.py --self-test
+```
+
+It asserts product restoration, context gating, particle agreement, 합쇼체
+conjugation, and every already-polite ending that must be left alone. All
+assertions must pass before shipping.
+
+The full pipeline:
 
 ```bash
 .github/skills/youtube-video-clip-editing/scripts/produce_localized_clip.sh \

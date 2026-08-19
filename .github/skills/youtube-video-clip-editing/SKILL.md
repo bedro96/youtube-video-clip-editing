@@ -1,6 +1,6 @@
 ---
 name: youtube-video-clip-editing
-description: End-to-end 7-stage pipeline that registers a run in MEMORY.md, downloads a YouTube clip with Edge cookies, transcribes English audio, corrects Microsoft/Azure/GitHub product-name spellings, translates to Korean with a 2-line-max cue wrap, burns the subtitles in at FontSize 24, and brackets the result with a Microsoft-logo intro/outro bumper. Intermediates live under work/NNN/ (per-run subfolder). Orchestrates four sibling skills (youtube-downloader, wjs-transcribing-audio, wjs-translating-subtitles, wjs-burning-subtitles) plus MEMORY.md registration, product-name review, subtitle wrapping, and FFmpeg normalization/concatenation into outcome/final_outputNNN.mp4. Use when the user asks to "download a YouTube clip and add Korean subtitles", "make a localized clip with our Microsoft intro/outro", or similar multi-step video-localization + branding requests.
+description: End-to-end 8-stage pipeline that registers a run in MEMORY.md, downloads a YouTube clip with Edge cookies, transcribes English audio, corrects Microsoft/Azure/GitHub product-name spellings, translates to Korean, QAs the Korean for mistranslated product names and 높임말 speech level, wraps every cue to 2 lines max, burns the subtitles in at FontSize 24, and brackets the result with a Microsoft-logo intro/outro bumper. Intermediates live under work/NNN/ (per-run subfolder). Orchestrates four sibling skills (youtube-downloader, wjs-transcribing-audio, wjs-translating-subtitles, wjs-burning-subtitles) plus MEMORY.md registration, product-name review, Korean translation QA, subtitle wrapping, and FFmpeg normalization/concatenation into outcome/final_outputNNN.mp4. Use when the user asks to "download a YouTube clip and add Korean subtitles", "make a localized clip with our Microsoft intro/outro", or similar multi-step video-localization + branding requests.
 metadata:
   tags:
     - video
@@ -18,12 +18,12 @@ metadata:
     - skill: wjs-translating-subtitles
       reason: Step 5 — translates the corrected English SRT to Korean at work/NNN/sourceNNN.ko.srt
     - skill: wjs-burning-subtitles
-      reason: Step 6 — burns the wrapped Korean SRT into work/NNN/sourceNNN.subtitled.mp4
+      reason: Step 7 — burns the wrapped Korean SRT into work/NNN/sourceNNN.subtitled.mp4
     - skill: video-processing-editing
-      reason: Step 7 — normalizes and concatenates intro, main, and outro into outcome/final_outputNNN.mp4
+      reason: Step 8 — normalizes and concatenates intro, main, and outro into outcome/final_outputNNN.mp4
 ---
 
-# YouTube Video Clip Editing (Register → Download → Term-Review → Korean Subs → Microsoft Bumper)
+# YouTube Video Clip Editing (Register → Download → Term-Review → Korean Subs → QA → Microsoft Bumper)
 
 ## Overview
 
@@ -36,11 +36,14 @@ YouTube URL (or local file path)
   → (3) wjs-transcribing-audio       → work/NNN/sourceNNN.en.raw.srt
   → (4) product-name review          → work/NNN/sourceNNN.en.srt
         (Microsoft / Azure / GitHub / Copilot / .NET / VS Code / ...)
-  → (5) wjs-translating-subtitles    → work/NNN/sourceNNN.ko.srt
-        (wrap_srt.py hard-caps every cue to 2 lines max)
-  → (6) wjs-burning-subtitles        → work/NNN/sourceNNN.subtitled.mp4
+  → (5) wjs-translating-subtitles    → work/NNN/sourceNNN.ko.raw.srt
+  → (6) Korean translation QA        → work/NNN/sourceNNN.ko.qa.srt
+        (product names restored: 직물→Fabric, 부조종사→Copilot;
+         speech level normalized to 높임말/합쇼체;
+         wrap_srt.py then hard-caps every cue to 2 lines → sourceNNN.ko.srt)
+  → (7) wjs-burning-subtitles        → work/NNN/sourceNNN.subtitled.mp4
         (FontSize 24, Apple SD Gothic Neo, WrapStyle=2)
-  → (7) video-processing-editing     → outcome/final_outputNNN.mp4
+  → (8) video-processing-editing     → outcome/final_outputNNN.mp4
         (FFmpeg concat: intro + subtitled + outro)
 ```
 
@@ -49,6 +52,7 @@ YouTube URL (or local file path)
 - Default subtitle font size is **24** and MUST NOT exceed 2 lines per cue.
 - Default vertical margin is **`MarginV=15`** so subtitles sit close to the bottom of the frame (bottom-anchored, YouTube-style burn-in).
 - Product names Microsoft, Azure, GitHub, Copilot, .NET, VS Code, etc. MUST be correctly capitalized (never generic-lowercased) before translation.
+- Korean subtitles MUST be in **높임말** (합쇼체, `~습니다`/`~입니다`) and MUST NOT contain product names translated as common nouns.
 
 ## Prerequisites
 
@@ -166,10 +170,10 @@ Lexicon includes (non-exhaustive): `Microsoft`, `Microsoft Azure`, `Azure`, `Azu
 
 **Skill:** `wjs-translating-subtitles`
 
-Runs translation, then a **hard 2-line cap**. Any cue whose translated text would render as 3+ lines at `FontSize=24` on 1920×1080 is either wrapped into exactly 2 lines or split into multiple time-proportional cues. This guarantees no cue ever exceeds 2 lines regardless of source verbosity.
+Runs the machine translation only. QA and the 2-line cap happen in Step 6.
 
 **Example prompt:**
-> "Translate work/NNN/sourceNNN.en.srt to Korean and enforce max 2 lines per cue."
+> "Translate work/NNN/sourceNNN.en.srt to Korean."
 
 **Underlying command:**
 ```bash
@@ -177,15 +181,47 @@ Runs translation, then a **hard 2-line cap**. Any cue whose translated text woul
   "work/${NNN}/source${NNN}.en.srt" \
   "work/${NNN}/source${NNN}.ko.raw.srt" \
   --source "${SOURCE_LANG:-en}" --target "${TARGET_LANG:-ko}"
+```
+
+**Output:** `work/NNN/sourceNNN.ko.raw.srt` (raw machine translation).
+
+### Step 6 — QA the Korean subtitles, then cap at 2 lines
+
+**Skill:** no skill; deterministic QA script
+
+Machine translation makes two systematic mistakes on Microsoft content, and this step fixes both **before** the text is burned in.
+
+**1. Product names translated as common nouns.** Google Translate renders `Fabric` as 직물, `Copilot` as 부조종사, `Azure Friday` as 푸른 금요일, `Sentinel` as 보초, `Playwright` as 극작가. The lexicon in `qa_ko_srt.py` restores these. Restoration is **context-gated on the English cue and case-sensitive** — a capitalized `Fabric` in the English SRT means the product, while a lowercase `fabric` means the textile and is left alone. This works because Step 4 already normalized product-name casing.
+
+Substituting an English noun back in also breaks Korean particle agreement, so the script repairs it: 부조종사**를** → Copilot**을** (closed syllable), 푸른**은** → Azure**는** (open syllable).
+
+**2. Inconsistent speech level.** Output mixes 합쇼체 (`~습니다`), 해요체 (`~해요`) and 한다체/반말 (`~한다`). Subtitles must be uniformly **높임말**; the script conjugates everything to 합쇼체 by Hangul jamo arithmetic rather than a word list, so unseen verbs are handled: 간다→갑니다, 저질렀다→저질렀습니다, 멋지다→멋집니다, 만든다→만듭니다. Already-polite endings (`입니다`, `습니다`, `~ㅂ시다`, `~ㄴ가요?`) are detected and left untouched.
+
+Anything it cannot fix confidently is written to a report instead of being guessed at, so a human or agent reviews a short list rather than the whole file.
+
+**Example prompt:**
+> "QA work/NNN/sourceNNN.ko.raw.srt against the English SRT — fix mistranslated Microsoft product names, enforce 높임말, and report anything questionable."
+
+**Underlying command:**
+```bash
+.venv/bin/python .github/skills/youtube-video-clip-editing/scripts/qa_ko_srt.py \
+  "work/${NNN}/source${NNN}.en.srt" \
+  "work/${NNN}/source${NNN}.ko.raw.srt" \
+  "work/${NNN}/source${NNN}.ko.qa.srt" \
+  --report "work/${NNN}/source${NNN}.ko.qa-report.txt"
 
 .venv/bin/python .github/skills/youtube-video-clip-editing/scripts/wrap_srt.py \
-  "work/${NNN}/source${NNN}.ko.raw.srt" \
+  "work/${NNN}/source${NNN}.ko.qa.srt" \
   "work/${NNN}/source${NNN}.ko.srt"
 ```
 
-**Output:** `work/NNN/sourceNNN.ko.srt` (every cue ≤ 2 lines).
+Then **read the report** and hand-fix anything it flagged. It lists every automatic rewrite, any cue still in plain form, and any cue where the English named a product that never made it into the Korean.
 
-### Step 6 — Burn Korean subtitles into the video
+Verify the QA rules themselves with `qa_ko_srt.py --self-test` (35 assertions).
+
+**Output:** `work/NNN/sourceNNN.ko.srt` (product names correct, 높임말, every cue ≤ 2 lines) plus `work/NNN/sourceNNN.ko.qa-report.txt`.
+
+### Step 7 — Burn Korean subtitles into the video
 
 **Skill:** `wjs-burning-subtitles`
 
@@ -204,7 +240,7 @@ ffmpeg -y -i "work/${NNN}/source${NNN}.mp4" \
 
 **Output:** `work/NNN/sourceNNN.subtitled.mp4` with Korean subtitles burned in (FontSize=24, max 2 lines) and original English audio preserved.
 
-### Step 7 — Normalize and concatenate intro, main, and outro
+### Step 8 — Normalize and concatenate intro, main, and outro
 
 **Skill:** `video-processing-editing`
 
@@ -284,5 +320,8 @@ Example:
 - Deliverable over 100 MB: GitHub rejects single files above 100 MB and the free Git LFS tier is only 1 GB, so oversized outcomes are not retained. Drop `outcome/final_outputNNN.mp4` (`git rm --cached` first — it is LFS-tracked) plus the bulky `work/NNN/` intermediates (`sourceNNN.mp4`, `sourceNNN.subtitled.mp4`, `norm_NNN_main.mp4`), keep the `.srt` files, and annotate the run `NNN - <origin> [outcome removed: >100MB]`.
 - Concurrent runs without `flock`: run-id allocation is racy. Give each concurrent run its own pre-seeded `MEMORY_FILE` (seeded so it deterministically allocates the id you want), then merge the registries afterwards.
 - Large deliverables: `outcome/*.mp4` is tracked with Git LFS because GitHub rejects files over 100 MB and hour-long 1080p runs reach ~300 MB.
-- Adding a new product name: append to `CORRECTIONS` in `scripts/correct_terms.py`. Longer phrases must come before their single-word components (e.g. `microsoft azure` before `microsoft`).
+- Adding a new product name: append to `CORRECTIONS` in `scripts/correct_terms.py` (English casing, Step 4) **and** to `PRODUCTS` in `scripts/qa_ko_srt.py` (Korean mistranslations, Step 6). Longer phrases must come before their single-word components in both (e.g. `microsoft azure` before `microsoft`, `Azure Friday` before `Azure`).
+- A Korean word that is also a legitimate common noun (직물, 보초, 전망) is only rewritten when the aligned English cue contains the product name **capitalized**, so ordinary prose is never clobbered. If a product still slips through, check that Step 4 capitalized it in the English SRT first.
+- Speech level: `qa_ko_srt.py` conjugates to 합쇼체 by jamo arithmetic, so new verbs need no configuration. Endings it must never touch (`~ㅂ시다` propositive, `~ㄴ가요?` interrogative, `~마다`, `~보다`) are listed in `NON_VERBAL_DA_TAILS` / `BOUNDARY_GUARDED` / `_is_propositive`.
+- After changing either lexicon or a conjugation rule, run `qa_ko_srt.py --self-test` before shipping.
 - Tuning the 2-line budget: adjust `LINE_UNITS` in `scripts/wrap_srt.py` (default `46` display units; CJK chars count as 2).

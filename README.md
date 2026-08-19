@@ -11,9 +11,9 @@ Copilot CLI skill: turn a YouTube URL into a Korean-subtitled clip bracketed by 
 
 ## What it does
 
-This repository helps localize and brand a source video clip into a shareable deliverable: it starts from a YouTube URL or local `.mp4`, transcribes English audio, corrects Microsoft/Azure/GitHub product-name spellings, translates to Korean while hard-capping every cue to at most 2 subtitle lines, burns the Korean subs in at FontSize 24, and wraps the result with Microsoft Azure intro/outro bumper clips.
+This repository helps localize and brand a source video clip into a shareable deliverable: it starts from a YouTube URL or local `.mp4`, transcribes English audio, corrects Microsoft/Azure/GitHub product-name spellings, translates to Korean, QAs that translation (restoring product names mistranslated as common nouns and normalizing the speech level to 높임말) while hard-capping every cue to at most 2 subtitle lines, burns the Korean subs in at FontSize 24, and wraps the result with Microsoft Azure intro/outro bumper clips.
 
-It is a thin orchestrator. The skill defined in `.github/skills/youtube-video-clip-editing/` sequences four sibling Copilot CLI skills (`youtube-downloader`, `wjs-transcribing-audio`, `wjs-translating-subtitles`, `wjs-burning-subtitles`) plus a product-name review, a subtitle-wrap pass, and an FFmpeg concat step; the repo mostly codifies the order, filenames, and handoffs.
+It is a thin orchestrator. The skill defined in `.github/skills/youtube-video-clip-editing/` sequences four sibling Copilot CLI skills (`youtube-downloader`, `wjs-transcribing-audio`, `wjs-translating-subtitles`, `wjs-burning-subtitles`) plus a product-name review, a Korean translation QA pass, a subtitle-wrap pass, and an FFmpeg concat step; the repo mostly codifies the order, filenames, and handoffs.
 
 ## How to use it with the GitHub Copilot CLI
 
@@ -50,12 +50,13 @@ flowchart TD
     B --> C[Step 2: youtube-downloader<br/>--cookies-from-browser edge<br/>work/NNN/sourceNNN.mp4]
     C --> D[Step 3: wjs-transcribing-audio<br/>Whisper small, local<br/>work/NNN/sourceNNN.en.raw.srt]
     D --> E[Step 4: correct_terms.py<br/>Microsoft / Azure / GitHub / Copilot / .NET / VS Code<br/>work/NNN/sourceNNN.en.srt]
-    E --> F[Step 5: wjs-translating-subtitles + wrap_srt.py<br/>Google Translate + max 2 lines per cue<br/>work/NNN/sourceNNN.ko.srt]
-    F --> G[Step 6: wjs-burning-subtitles<br/>FontSize 24, MarginV 15 bottom-anchored<br/>Apple SD Gothic Neo, WrapStyle=2<br/>work/NNN/sourceNNN.subtitled.mp4]
-    G --> H[Step 7: video-processing-editing<br/>FFmpeg normalize + concat: intro + main + outro<br/>1920x1080 / 30 fps / libx264 / aac 48k]
-    I[assets/ms-logo-intro.mp4] --> H
-    J[assets/ms-logo-outro.mp4] --> H
-    H --> K[outcome/final_outputNNN.mp4]
+    E --> F[Step 5: wjs-translating-subtitles<br/>Google Translate<br/>work/NNN/sourceNNN.ko.raw.srt]
+    F --> G[Step 6: qa_ko_srt.py + wrap_srt.py<br/>restore product names, enforce 높임말<br/>then max 2 lines per cue<br/>work/NNN/sourceNNN.ko.srt]
+    G --> H[Step 7: wjs-burning-subtitles<br/>FontSize 24, MarginV 15 bottom-anchored<br/>Apple SD Gothic Neo, WrapStyle=2<br/>work/NNN/sourceNNN.subtitled.mp4]
+    H --> L[Step 8: video-processing-editing<br/>FFmpeg normalize + concat: intro + main + outro<br/>1920x1080 / 30 fps / libx264 / aac 48k]
+    I[assets/ms-logo-intro.mp4] --> L
+    J[assets/ms-logo-outro.mp4] --> L
+    L --> K[outcome/final_outputNNN.mp4]
 ```
 
 ## Where to find the outputs
@@ -65,7 +66,7 @@ flowchart TD
 | **Deliverable** | `./outcome/final_outputNNN.mp4` at repo root (`NNN` is the run id). |
 | **Run registry** | `./MEMORY.md` — one line per run in `NNN - <origin>` form. |
 | **Intermediates (per run)** | `./work/NNN/sourceNNN.mp4`, `sourceNNN.en.raw.srt`, `sourceNNN.en.srt`, `sourceNNN.ko.raw.srt`, `sourceNNN.ko.srt`, `sourceNNN.subtitled.mp4`, `norm_NNN_{intro,main,outro}.mp4`, `concat_NNN.txt`. |
-| **Assets (inputs to Step 7)** | `./assets/ms-logo-intro.mp4`, `./assets/ms-logo-outro.mp4`. |
+| **Assets (inputs to Step 8)** | `./assets/ms-logo-intro.mp4`, `./assets/ms-logo-outro.mp4`. |
 
 Each run gets its own `work/NNN/` folder. When you're done with a run and have the deliverable, you can free space with `rm -rf work/NNN`.
 
@@ -75,8 +76,61 @@ Each run gets its own `work/NNN/` folder. When you're done with a run and have t
 - **Bottom-anchored placement: `MarginV=15`.** Subtitles sit close to the bottom of the frame so the eye stays on the main image. Overrideable via `SUB_MARGIN_V`.
 - **Every cue is 2 lines maximum.** `scripts/wrap_srt.py` measures display width (CJK chars count as 2 units), targets ≤ 46 units per line, and either wraps to 2 lines or splits the cue in time.
 - **Product names are auto-corrected before translation.** `scripts/correct_terms.py` normalizes `Microsoft`, `Azure`, `GitHub`, `Copilot`, `Microsoft Azure`, `Azure OpenAI`, `GitHub Copilot`, `.NET`, `VS Code`, `Power BI`, `Microsoft 365`, `SQL Server`, `Windows`, `PowerShell`, `OpenAI`, `ChatGPT`, `TypeScript`, `JavaScript`, `Kubernetes`, `Docker`, `Linux`, `macOS`, and more, using case-insensitive matching and correctly-cased replacement.
+- **The Korean translation is QA'd before it is burned in.** See below.
 
-Add a new product name by appending it to the `CORRECTIONS` list in `scripts/correct_terms.py` (longer phrases before shorter ones).
+Add a new product name by appending it to the `CORRECTIONS` list in `scripts/correct_terms.py` (longer phrases before shorter ones) **and** to `PRODUCTS` in `scripts/qa_ko_srt.py`.
+
+## Korean translation QA (Step 6)
+
+Machine translation gets two things reliably wrong on Microsoft content, so `scripts/qa_ko_srt.py` runs between translation and burn-in to fix them.
+
+### 1. Product names translated as ordinary nouns
+
+Google Translate happily turns product names into common nouns. Real examples pulled from this repo's own runs:
+
+| English | Machine translation | After QA |
+|---|---|---|
+| Fabric | 직물 (textile) | **Fabric** |
+| Copilot | 부조종사 (co-pilot, aviation) | **Copilot** |
+| Azure Friday | 푸른 금요일 (blue Friday) | **Azure Friday** |
+| Playwright | 극작가 (dramatist) | **Playwright** |
+| Sentinel | 보초 (sentry) | **Sentinel** |
+| Foundry | 파운드리 | **Foundry** |
+
+Restoration is **context-gated and case-sensitive**: a Korean word is only rewritten when the aligned English cue contains that product name capitalized. So "the **fabric** of the chair" keeps 직물, while "a **Fabric** workspace" becomes Fabric. This works because Step 4 has already normalized English casing.
+
+Swapping a Korean noun for an English one also breaks Korean particle agreement, which the script repairs — 부조종사**를** becomes Copilot**을** (closed syllable) while 푸른**은** becomes Azure**는** (open syllable).
+
+### 2. Inconsistent speech level (높임말)
+
+Raw output mixes 합쇼체 (`~습니다`), 해요체 (`~해요`) and 한다체/반말 (`~한다`) — sometimes inside one sentence. Subtitles should be uniformly polite, so everything is conjugated to 합쇼체:
+
+| Before | After |
+|---|---|
+| 그럼 우리는 간다. | 그럼 우리는 **갑니다**. |
+| 큰 실수를 저질렀다. | 큰 실수를 **저질렀습니다**. |
+| 꽤 멋지다. | 꽤 **멋집니다**. |
+| 다양한 전략이 있어요 | 다양한 전략이 **있습니다** |
+
+This uses Hangul jamo arithmetic rather than a word list, so verbs the author never anticipated are still conjugated correctly. Endings that are *already* polite — `입니다`, `습니다`, the propositive `~ㅂ시다` (봅시다), the interrogative `~ㄴ가요?` — are detected and left alone.
+
+### The QA report
+
+Anything the script will not fix confidently is written to `work/NNN/sourceNNN.ko.qa-report.txt` instead of being guessed at. It lists every automatic rewrite with its English source, any cue still in plain form, and any cue where the English mentioned a product that never appeared in the Korean. Read it after a run and hand-fix the short list.
+
+Validate the rules themselves at any time — this is the one piece of the repo with real tests:
+
+```bash
+.venv/bin/python .github/skills/youtube-video-clip-editing/scripts/qa_ko_srt.py --self-test
+```
+
+You can also run QA standalone against an existing run:
+
+```bash
+.venv/bin/python .github/skills/youtube-video-clip-editing/scripts/qa_ko_srt.py \
+  work/003/source003.en.srt work/003/source003.ko.raw.srt \
+  work/003/source003.ko.qa.srt --report work/003/source003.ko.qa-report.txt
+```
 
 ## Prereqs and useful info
 
