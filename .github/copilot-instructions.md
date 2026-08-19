@@ -93,7 +93,7 @@ Key conventions this pipeline relies on — preserve them when editing:
 One line per run, in allocation order, using exactly this shape:
 
 ```
-NNN - <origin>[ [trim HH:MM:SS-HH:MM:SS]]
+NNN - <origin>[ [trim HH:MM:SS-HH:MM:SS]][ [outcome removed: >100MB]]
 ```
 
 - `NNN` is zero-padded 3 digits (`001`, `002`, ..., `999`).
@@ -107,6 +107,15 @@ NNN - <origin>[ [trim HH:MM:SS-HH:MM:SS]]
   temporary local path as origin — **rewrite that line** so the origin traces
   back to the YouTube URL plus the trim range, otherwise the provenance is
   lost when the temp file is deleted.
+- **Retention suffix (optional).** GitHub rejects single files over 100 MB and
+  the free Git LFS tier is only 1 GB, so deliverables above 100 MB are not kept
+  in the repo. When one is dropped, append ` [outcome removed: >100MB]` and
+  delete `outcome/final_outputNNN.mp4` (`git rm --cached` first, since it is
+  LFS-tracked) along with the bulky `work/NNN/` intermediates
+  (`sourceNNN.mp4`, `sourceNNN.subtitled.mp4`, `norm_NNN_main.mp4`). **Keep the
+  `.srt` files** — they carry the expensive transcription and translation work,
+  so the clip can be rebuilt with a re-download and a re-burn instead of a full
+  re-transcribe.
 - No other columns, no headers, no blank lines between entries.
 
 Example:
@@ -115,6 +124,7 @@ Example:
 001 - https://www.youtube.com/watch?v=abc123
 002 - /Users/me/Videos/keynote.mp4
 003 - https://www.youtube.com/watch?v=xyz789 [trim 00:01:30-00:59:51]
+004 - https://www.youtube.com/watch?v=def456 [outcome removed: >100MB]
 ```
 
 To pick the next id, read the file, parse the leading integer of each line,

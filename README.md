@@ -150,6 +150,16 @@ git lfs track "outcome/*.mp4"   # already recorded in .gitattributes
 
 Clone the repo with `git lfs pull` to fetch the actual videos. Note the free GitHub LFS tier is 1 GB of storage and 1 GB/month of bandwidth — if you accumulate many long runs you may need to buy a data pack or stop versioning `outcome/`.
 
+**Retention policy:** to stay inside that quota, deliverables larger than 100 MB are not kept in the repo. When a run exceeds it, drop the deliverable and the bulky `work/NNN/` intermediates, then annotate the run in `MEMORY.md`:
+
+```bash
+git rm --cached outcome/final_outputNNN.mp4
+rm -f outcome/final_outputNNN.mp4
+rm -f work/NNN/sourceNNN.mp4 work/NNN/sourceNNN.subtitled.mp4 work/NNN/norm_NNN_main.mp4
+```
+
+Keep the `.srt` files — they hold the expensive Whisper transcription and translation output, so regenerating the clip only needs a re-download plus a re-burn, not a full re-transcribe. Mark the run as `NNN - <origin> [outcome removed: >100MB]` so it is clear the deliverable is reproducible rather than missing by accident.
+
 ### Orchestrator configuration
 
 The script accepts `AUTO_INSTALL_DEPS`, `COOKIE_BROWSER` (default `edge`), `WHISPER_MODEL` (default `small`), `SOURCE_LANG`/`TARGET_LANG` (defaults `en`/`ko`), `SUB_FONT`, `SUB_FONT_SIZE` (default **`24`**), `SUB_MARGIN_V` (default **`15`**), and `MEMORY_FILE`.
