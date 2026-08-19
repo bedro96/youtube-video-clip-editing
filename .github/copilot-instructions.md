@@ -13,26 +13,34 @@ anything. The bash orchestrator
 `.github/skills/youtube-video-clip-editing/scripts/produce_localized_clip.sh`
 is the executable form of that spec; the two must stay in sync.
 
-## Pipeline (6 stages, each delegated to a separate skill)
+## Pipeline (7 stages)
 
 ```
 YouTube URL (or local file path)
   → (1) register-run in /MEMORY.md   → allocates NNN, logs "NNN - <origin>"
-  → (2) youtube-downloader           → work/sourceNNN.mp4
-  → (3) wjs-transcribing-audio       → work/sourceNNN.en.srt
-  → (4) wjs-translating-subtitles    → work/sourceNNN.ko.srt
-  → (5) wjs-burning-subtitles        → work/sourceNNN.subtitled.mp4
-  → (6) video-processing-editing     → outcome/final_outputNNN.mp4
+  → (2) youtube-downloader           → work/NNN/sourceNNN.mp4
+  → (3) wjs-transcribing-audio       → work/NNN/sourceNNN.en.raw.srt
+  → (4) product-name review          → work/NNN/sourceNNN.en.srt
+        (Microsoft / Azure / GitHub / Copilot / .NET / VS Code ...)
+  → (5) wjs-translating-subtitles    → work/NNN/sourceNNN.ko.srt
+        (post-processed to max 2 subtitle lines per cue)
+  → (6) wjs-burning-subtitles        → work/NNN/sourceNNN.subtitled.mp4
+        (FontSize 24, Apple SD Gothic Neo, WrapStyle=2)
+  → (7) video-processing-editing     → outcome/final_outputNNN.mp4
         (FFmpeg concat: intro + subtitled + outro)
 ```
 
 Key conventions this pipeline relies on — preserve them when editing:
 
-- **Scratch dir is `./work/`** and intermediate filenames are
-  `sourceNNN.mp4`, `sourceNNN.en.srt`, `sourceNNN.ko.srt`,
-  `sourceNNN.subtitled.mp4`, where `NNN` is the zero-padded 3-digit run id
-  allocated in Step 1. Every downstream stage substitutes the *same* `NNN`
-  into the filename it consumes/produces — do not mix run ids across stages.
+- **Per-run scratch dir is `./work/NNN/`** — every intermediate for a given
+  run lands under its own zero-padded 3-digit subfolder so that repeated runs
+  do not pile files into a single `work/` root and are trivially cleanable
+  (`rm -rf work/NNN`). Intermediate filenames still carry `NNN` for
+  grep-ability: `sourceNNN.mp4`, `sourceNNN.en.raw.srt`, `sourceNNN.en.srt`,
+  `sourceNNN.ko.raw.srt`, `sourceNNN.ko.srt`, `sourceNNN.subtitled.mp4`,
+  `norm_NNN_{intro,main,outro}.mp4`, `concat_NNN.txt`. Every downstream
+  stage substitutes the *same* `NNN` into the filename and folder — do not
+  mix run ids across stages.
 - **Step 1 (run registration) is mandatory and must run before Step 2.**
   Agents must:
   1. Read `/MEMORY.md` at the repo root (create it if missing).
@@ -40,32 +48,39 @@ Key conventions this pipeline relies on — preserve them when editing:
      is empty.
   3. Append exactly one line: `NNN - <origin>` where `<origin>` is the
      YouTube URL or the absolute/relative local source path.
-  4. Pass that same `NNN` into every subsequent stage's filenames.
-  `/MEMORY.md` is the authoritative registry of which runs exist, what each
-  one came from, and what the next available `NNN` is — future agents rely
-  on it to avoid collisions and to trace a `sourceNNN.mp4` back to its
-  origin.
-- **Final deliverable is `outcome/final_outputNNN.mp4` at the repo root**, using
-  the same `NNN` allocated in Step 1 for that run's `sourceNNN.*`
-  intermediates.
-- **English audio is preserved** through Step 5; only the video track gets
+  4. Create `./work/NNN/` if it does not exist.
+  5. Pass that same `NNN` into every subsequent stage's filenames.
+- **Step 4 (product-name review) is mandatory.** Whisper commonly lowercases
+  Microsoft/Azure/GitHub product names; Step 4 applies a deterministic
+  lexicon (`scripts/correct_terms.py`) that ensures `Microsoft`, `Azure`,
+  `GitHub`, `GitHub Copilot`, `Copilot`, `.NET`, `VS Code`, `Power BI`,
+  `Microsoft 365`, etc. are always properly cased. **Never treat these as
+  generic tokens.** Add new terms to `CORRECTIONS` in that script, longer
+  phrases before shorter ones (e.g. `microsoft azure` before `microsoft`).
+- **Step 5 hard-caps every cue to 2 subtitle lines.** `scripts/wrap_srt.py`
+  measures display width in units (CJK = 2, other = 1), targets ≤ 46 units
+  per line, and either wraps to 2 lines or splits the cue in time. This
+  invariant is non-negotiable — do not weaken it or bump `LINE_UNITS` past
+  ~50 without measuring on 1080p.
+- **Default subtitle font size is 24, not 32.** This value is intentional
+  and paired with the 2-line cap. Larger sizes will overflow 2 lines on
+  medium-length Korean cues. Overrideable via `SUB_FONT_SIZE`, but the
+  default in code and docs must stay `24`.
+- **Final deliverable is `outcome/final_outputNNN.mp4` at the repo root**,
+  using the same `NNN` allocated in Step 1.
+- **English audio is preserved** through Step 6; only the video track gets
   Korean subs burned in. Do not add an audio-replacement step.
-- **Step 6 requires normalization first.** Intro, main, and outro must share
+- **Step 7 requires normalization first.** Intro, main, and outro must share
   codec/resolution/fps/audio-sample-rate before `ffmpeg -f concat -c copy`,
   or the output desyncs/corrupts. Current normalization target is
   `1920x1080 / 30 fps / libx264 yuv420p / aac 48 kHz stereo` — change all
   three inputs together, never just one.
 - **Sibling-skill script paths are relative**, resolved from the orchestrator
-  as `$(dirname "$0")/../../<skill-name>/scripts/...`. That means this repo
-  assumes it is checked out alongside the other skills under a common
-  `.github/skills/` (or equivalent) parent — moving the script breaks Steps
-  2 and 5.
+  as `$(dirname "$0")/../../<skill-name>/scripts/...`. Moving the script
+  breaks Steps 2 and 6.
 - **`set -euo pipefail`** in the orchestrator is intentional: any stage
   failure must abort so partial/garbage files never propagate downstream.
   Do not weaken this.
-- **Steps 3 and 4 are placeholders** (`transcribe`, `translate-srt`) — the
-  real CLI/API entry points depend on the environment. Do not invent flags
-  for them; mirror whatever the underlying skill's `SKILL.md` documents.
 - **One-bumper fallback:** if the user supplies only one branding clip, it
   is passed for *both* intro and outro positions. Keep this behavior.
 
@@ -105,21 +120,21 @@ end-to-end:
 ```
 
 The orchestrator handles Step 1 registration automatically: it reads or
-creates `/MEMORY.md`, allocates the next `NNN`, and writes
-`outcome/final_outputNNN.mp4`.
+creates `/MEMORY.md`, allocates the next `NNN`, creates `./work/NNN/`, and
+writes `outcome/final_outputNNN.mp4`.
 
 Supported environment overrides are `AUTO_INSTALL_DEPS`, `COOKIE_BROWSER`
 (default `edge`), `WHISPER_MODEL` (default `small`), `SOURCE_LANG`/
-`TARGET_LANG` (defaults `en`/`ko`), `SUB_FONT`/`SUB_FONT_SIZE`, and
-`MEMORY_FILE`.
+`TARGET_LANG` (defaults `en`/`ko`), `SUB_FONT`, `SUB_FONT_SIZE` (default
+**`24`**), and `MEMORY_FILE`.
 
 To test a single stage in isolation, first pick an `NNN` manually — either
 reuse an existing id from `/MEMORY.md` (to re-run a stage against an
 already-staged intermediate) or allocate a fresh one and append the
-registration line yourself — then stage `work/sourceNNN.mp4` (or the relevant
-intermediate) and invoke that stage's underlying command from `SKILL.md`. Do
-not add a test harness unless the user asks — this repo intentionally defers
-execution to the delegated skills.
+registration line yourself — then stage `work/NNN/sourceNNN.mp4` (or the
+relevant intermediate) and invoke that stage's underlying command from
+`SKILL.md`. Do not add a test harness unless the user asks — this repo
+intentionally defers execution to the delegated skills.
 
 ## YouTube Edge sign-in prerequisite
 
@@ -132,22 +147,20 @@ yt-dlp --cookies-from-browser edge \
   --extractor-args "youtube:player_client=web,mweb" \
   -f "bv*[height<=1080]+ba/b[height<=1080]" \
   --merge-output-format mp4 \
-  -o "work/sourceNNN.mp4" "<youtube_url>"
+  -o "work/NNN/sourceNNN.mp4" "<youtube_url>"
 ```
 
 `-f 18` (360p muxed mp4) is a fallback only when adaptive HD formats are unavailable.
 
-> Historical note: run 001 in this repo happened to use `--cookies-from-browser safari` because that's what the operator was signed in with at the time.
-
 ## Known gotchas on macOS
 
-**1. Homebrew `ffmpeg` from `homebrew/core` ships without libass.** That means the `subtitles` filter used by Step 5 is missing (`No such filter: 'subtitles'`). Fix:
+**1. Homebrew `ffmpeg` from `homebrew/core` ships without libass.** That means the `subtitles` filter used by Step 6 is missing (`No such filter: 'subtitles'`). Fix:
 ```bash
 brew uninstall ffmpeg
 brew tap homebrew-ffmpeg/ffmpeg
 brew install homebrew-ffmpeg/ffmpeg/ffmpeg
 ```
-The community tap makes `libass` a required dep, so the `subtitles` (and `ass`) filters ship in the binary. Confirm with `ffmpeg -filters | grep -i subtitle`.
+Confirm with `ffmpeg -filters | grep -i subtitle`.
 
 **2. Homebrew Python is PEP-668 externally-managed.** `pip install --user openai-whisper deep-translator` fails with an "externally-managed-environment" error. Fix: use a project-local venv.
 ```bash
@@ -159,10 +172,16 @@ Then invoke skill scripts as `.venv/bin/python …` (or `.venv/bin/whisper …`)
 
 ## When editing
 
-- Update `SKILL.md` and `produce_localized_clip.sh` **together**. The
-  step-by-step section in `SKILL.md` is the source of truth for what the
-  script does.
-- The skill's frontmatter `description:` field is what the CLI matches on for
-  auto-invocation. If you change trigger phrases, update it there.
-- If you add a new stage, also update the `pairs-with:` list and the pipeline
-  ASCII diagram.
+- Update `SKILL.md`, `produce_localized_clip.sh`, `README.md`, and this file
+  **together**. When any of them changes, revisit the others in the same
+  edit pass.
+- The step-by-step section in `SKILL.md` is the source of truth for what
+  the script does.
+- The skill's frontmatter `description:` field is what the CLI matches on
+  for auto-invocation. If you change trigger phrases, update it there.
+- If you add a new stage, also update the `pairs-with:` list, the pipeline
+  ASCII diagram in both `SKILL.md` and this file, and the mermaid flowchart
+  in `README.md`.
+- If you change `SUB_FONT_SIZE`, `LINE_UNITS`, or the term-correction
+  lexicon, restate the defaults in both `SKILL.md` and this file, and note
+  the change in `README.md` if user-visible.

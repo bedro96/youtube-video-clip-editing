@@ -24,13 +24,16 @@ WHISPER_MODEL="${WHISPER_MODEL:-small}"
 SOURCE_LANG="${SOURCE_LANG:-en}"
 TARGET_LANG="${TARGET_LANG:-ko}"
 SUB_FONT="${SUB_FONT:-Apple SD Gothic Neo}"
-SUB_FONT_SIZE="${SUB_FONT_SIZE:-32}"
+SUB_FONT_SIZE="${SUB_FONT_SIZE:-24}"
 MEMORY_FILE="${MEMORY_FILE:-${repo_root}/MEMORY.md}"
 
 SOURCE_INPUT="$1"
 INTRO_CLIP="$2"
 OUTRO_CLIP="${3:-$INTRO_CLIP}"
-WORK_DIR="${4:-./work}"
+# WORK_DIR default is deferred until NNN is allocated so that each run
+# lands in its own ./work/NNN/ subfolder. Callers can still override the
+# 4th positional arg with an explicit path.
+WORK_DIR_ARG="${4:-}"
 
 need_python=0
 need_ffmpeg=0
@@ -110,7 +113,7 @@ else
 fi
 YTDLP="$(command -v yt-dlp)"
 
-if ! "${FFMPEG}" -hide_banner -filters 2>/dev/null | grep -q '^ .. subtitles '; then
+if ! "${FFMPEG}" -hide_banner -filters 2>/dev/null | grep '^ .. subtitles ' >/dev/null; then
   echo "This ffmpeg build is missing the subtitles filter/libass support." >&2
   echo "On macOS, install with:" >&2
   echo "  brew tap homebrew-ffmpeg/ffmpeg && brew install homebrew-ffmpeg/ffmpeg/ffmpeg" >&2
@@ -145,7 +148,7 @@ else
   ORIGIN="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "${SOURCE_INPUT}")"
 fi
 
-mkdir -p "${WORK_DIR}" "${repo_root}/outcome"
+mkdir -p "${repo_root}/outcome"
 
 max_memory_number() {
   awk 'match($0,/^[0-9]+/){n=substr($0,RSTART,RLENGTH)+0;if(n>max)max=n}END{print max+0}' "$1"
@@ -175,10 +178,19 @@ register_run() {
 }
 
 NNN="$(register_run)"
+if [[ -z "${WORK_DIR_ARG}" ]]; then
+  WORK_DIR="${repo_root}/work/${NNN}"
+else
+  WORK_DIR="${WORK_DIR_ARG}"
+fi
+mkdir -p "${WORK_DIR}"
 SOURCE_MP4="${WORK_DIR}/source${NNN}.mp4"
 
+echo "[1/7] Registered run ${NNN} in ${MEMORY_FILE}"
+echo "[info] Work directory: ${WORK_DIR}"
+
 if [[ "${SOURCE_INPUT}" =~ ^https?:// ]]; then
-  echo "[2/6] Acquiring source from YouTube..."
+  echo "[2/7] Acquiring source from YouTube..."
   download_ok=0
   for selector in "bv*[height<=1080]+ba/b[height<=1080]" "bv*[height<=720]+ba/b[height<=720]" "18"; do
     echo "[info] Trying yt-dlp selector: ${selector}"
@@ -193,24 +205,34 @@ if [[ "${SOURCE_INPUT}" =~ ^https?:// ]]; then
     exit 1
   fi
 else
-  echo "[2/6] Copying local source..."
+  echo "[2/7] Copying local source..."
   cp -f "${ORIGIN}" "${SOURCE_MP4}"
 fi
 
-echo "[3/6] Transcribing ${SOURCE_LANG} audio to SRT..."
+echo "[3/7] Transcribing ${SOURCE_LANG} audio to SRT..."
 "${WHISPER_BIN}" "${SOURCE_MP4}" --model "${WHISPER_MODEL}" --language "${SOURCE_LANG}" --task transcribe --output_format srt --output_dir "${WORK_DIR}"
 if [[ ! -f "${WORK_DIR}/source${NNN}.srt" ]]; then
   echo "Expected Whisper output not found: ${WORK_DIR}/source${NNN}.srt" >&2
   exit 1
 fi
-mv "${WORK_DIR}/source${NNN}.srt" "${WORK_DIR}/source${NNN}.en.srt"
+mv "${WORK_DIR}/source${NNN}.srt" "${WORK_DIR}/source${NNN}.en.raw.srt"
 
-echo "[4/6] Translating SRT to ${TARGET_LANG}..."
-"${PYTHON_BIN}" "${SCRIPT_DIR}/translate_srt.py" "${WORK_DIR}/source${NNN}.en.srt" "${WORK_DIR}/source${NNN}.${TARGET_LANG}.srt" --source "${SOURCE_LANG}" --target "${TARGET_LANG}"
+echo "[4/7] Reviewing en.srt for Microsoft/Azure/GitHub product names..."
+"${PYTHON_BIN}" "${SCRIPT_DIR}/correct_terms.py" \
+  "${WORK_DIR}/source${NNN}.en.raw.srt" \
+  "${WORK_DIR}/source${NNN}.en.srt"
 
-echo "[5/6] Burning ${TARGET_LANG} subtitles into the video..."
+echo "[5/7] Translating SRT to ${TARGET_LANG}..."
+"${PYTHON_BIN}" "${SCRIPT_DIR}/translate_srt.py" "${WORK_DIR}/source${NNN}.en.srt" "${WORK_DIR}/source${NNN}.${TARGET_LANG}.raw.srt" --source "${SOURCE_LANG}" --target "${TARGET_LANG}"
+
+echo "[info] Enforcing max 2 subtitle lines per cue..."
+"${PYTHON_BIN}" "${SCRIPT_DIR}/wrap_srt.py" \
+  "${WORK_DIR}/source${NNN}.${TARGET_LANG}.raw.srt" \
+  "${WORK_DIR}/source${NNN}.${TARGET_LANG}.srt"
+
+echo "[6/7] Burning ${TARGET_LANG} subtitles into the video (FontSize=${SUB_FONT_SIZE}, max 2 lines)..."
 "${FFMPEG}" -y -i "${SOURCE_MP4}" \
-  -vf "subtitles=${WORK_DIR}/source${NNN}.${TARGET_LANG}.srt:force_style='FontName=${SUB_FONT},FontSize=${SUB_FONT_SIZE},PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=0,MarginV=30'" \
+  -vf "subtitles=${WORK_DIR}/source${NNN}.${TARGET_LANG}.srt:force_style='FontName=${SUB_FONT},FontSize=${SUB_FONT_SIZE},PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=0,MarginV=30,WrapStyle=2'" \
   -c:v libx264 -pix_fmt yuv420p -c:a copy \
   "${WORK_DIR}/source${NNN}.subtitled.mp4"
 
@@ -229,7 +251,7 @@ if ! has_audio_stream "${OUTRO_CLIP}"; then
   echo "[info] Outro has no audio stream; synthesizing silent AAC during normalization."
 fi
 
-echo "[6/6] Normalizing and concatenating..."
+echo "[7/7] Normalizing and concatenating..."
 for pair in "intro:${INTRO_CLIP}" "main:${WORK_DIR}/source${NNN}.subtitled.mp4" "outro:${OUTRO_CLIP}"; do
   role="${pair%%:*}"
   src="${pair#*:}"

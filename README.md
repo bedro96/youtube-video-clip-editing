@@ -4,9 +4,9 @@ Copilot CLI skill: turn a YouTube URL into a Korean-subtitled clip bracketed by 
 
 ## What it does
 
-This repository helps localize and brand a source video clip into a shareable deliverable: it starts from a YouTube URL or local `.mp4`, produces English and Korean subtitles, burns in the Korean subtitles, and wraps the result with Microsoft Azure intro/outro bumper clips.
+This repository helps localize and brand a source video clip into a shareable deliverable: it starts from a YouTube URL or local `.mp4`, transcribes English audio, corrects Microsoft/Azure/GitHub product-name spellings, translates to Korean while hard-capping every cue to at most 2 subtitle lines, burns the Korean subs in at FontSize 24, and wraps the result with Microsoft Azure intro/outro bumper clips.
 
-It is a thin orchestrator. The skill defined in `.github/skills/youtube-video-clip-editing/` sequences four sibling Copilot CLI skills (`youtube-downloader`, `wjs-transcribing-audio`, `wjs-translating-subtitles`, `wjs-burning-subtitles`) plus an FFmpeg concat step; the repo mostly codifies the order, filenames, and handoffs.
+It is a thin orchestrator. The skill defined in `.github/skills/youtube-video-clip-editing/` sequences four sibling Copilot CLI skills (`youtube-downloader`, `wjs-transcribing-audio`, `wjs-translating-subtitles`, `wjs-burning-subtitles`) plus a product-name review, a subtitle-wrap pass, and an FFmpeg concat step; the repo mostly codifies the order, filenames, and handoffs.
 
 ## How to use it with the GitHub Copilot CLI
 
@@ -33,21 +33,22 @@ You can also run the bundled orchestrator script directly:
   assets/ms-logo-outro.mp4
 ```
 
-The script registers the run in `MEMORY.md`, allocates the next `NNN`, and writes the deliverable to `outcome/final_outputNNN.mp4`.
+The script registers the run in `MEMORY.md`, allocates the next `NNN`, creates a per-run scratch folder at `work/NNN/`, and writes the deliverable to `outcome/final_outputNNN.mp4`.
 
 ## Flow
 
 ```mermaid
 flowchart TD
-    A[YouTube URL or local file] --> B[Step 1: Register run in /MEMORY.md<br/>allocate NNN, log 'NNN - origin']
-    B --> C[Step 2: youtube-downloader<br/>work/sourceNNN.mp4]
-    C --> D[Step 3: wjs-transcribing-audio<br/>work/sourceNNN.en.srt]
-    D --> E[Step 4: wjs-translating-subtitles<br/>work/sourceNNN.ko.srt]
-    E --> F[Step 5: wjs-burning-subtitles<br/>work/sourceNNN.subtitled.mp4]
-    F --> G[Step 6: video-processing-editing<br/>FFmpeg concat with intro + outro]
-    H[assets/ms-logo-intro.mp4] --> G
-    I[assets/ms-logo-outro.mp4] --> G
-    G --> J[outcome/final_outputNNN.mp4]
+    A[YouTube URL or local file] --> B[Step 1: Register run in /MEMORY.md<br/>allocate NNN, log 'NNN - origin'<br/>create work/NNN/]
+    B --> C[Step 2: youtube-downloader<br/>work/NNN/sourceNNN.mp4]
+    C --> D[Step 3: wjs-transcribing-audio<br/>work/NNN/sourceNNN.en.raw.srt]
+    D --> E[Step 4: correct_terms.py<br/>Microsoft / Azure / GitHub / Copilot / .NET / VS Code<br/>work/NNN/sourceNNN.en.srt]
+    E --> F[Step 5: wjs-translating-subtitles + wrap_srt.py<br/>max 2 subtitle lines per cue<br/>work/NNN/sourceNNN.ko.srt]
+    F --> G[Step 6: wjs-burning-subtitles<br/>FontSize 24, Apple SD Gothic Neo, WrapStyle=2<br/>work/NNN/sourceNNN.subtitled.mp4]
+    G --> H[Step 7: video-processing-editing<br/>FFmpeg concat with intro + outro]
+    I[assets/ms-logo-intro.mp4] --> H
+    J[assets/ms-logo-outro.mp4] --> H
+    H --> K[outcome/final_outputNNN.mp4]
 ```
 
 ## Where to find the outputs
@@ -56,8 +57,18 @@ flowchart TD
 | --- | --- |
 | **Deliverable** | `./outcome/final_outputNNN.mp4` at repo root (`NNN` is the run id). |
 | **Run registry** | `./MEMORY.md` — one line per run in `NNN - <origin>` form. |
-| **Intermediates (per run)** | `./work/sourceNNN.mp4`, `sourceNNN.en.srt`, `sourceNNN.ko.srt`, `sourceNNN.subtitled.mp4`, `norm_NNN_{intro,main,outro}.mp4`, `concat_NNN.txt`. |
-| **Assets (inputs to Step 6)** | `./assets/ms-logo-intro.mp4`, `./assets/ms-logo-outro.mp4`. |
+| **Intermediates (per run)** | `./work/NNN/sourceNNN.mp4`, `sourceNNN.en.raw.srt`, `sourceNNN.en.srt`, `sourceNNN.ko.raw.srt`, `sourceNNN.ko.srt`, `sourceNNN.subtitled.mp4`, `norm_NNN_{intro,main,outro}.mp4`, `concat_NNN.txt`. |
+| **Assets (inputs to Step 7)** | `./assets/ms-logo-intro.mp4`, `./assets/ms-logo-outro.mp4`. |
+
+Each run gets its own `work/NNN/` folder. When you're done with a run and have the deliverable, you can free space with `rm -rf work/NNN`.
+
+## Subtitle rules (hard-coded)
+
+- **Default font size: 24.** Overrideable via `SUB_FONT_SIZE` but 24 is chosen deliberately.
+- **Every cue is 2 lines maximum.** `scripts/wrap_srt.py` measures display width (CJK chars count as 2 units), targets ≤ 46 units per line, and either wraps to 2 lines or splits the cue in time.
+- **Product names are auto-corrected before translation.** `scripts/correct_terms.py` normalizes `Microsoft`, `Azure`, `GitHub`, `Copilot`, `Microsoft Azure`, `Azure OpenAI`, `GitHub Copilot`, `.NET`, `VS Code`, `Power BI`, `Microsoft 365`, `SQL Server`, `Windows`, `PowerShell`, `OpenAI`, `ChatGPT`, `TypeScript`, `JavaScript`, `Kubernetes`, `Docker`, `Linux`, `macOS`, and more, using case-insensitive matching and correctly-cased replacement.
+
+Add a new product name by appending it to the `CORRECTIONS` list in `scripts/correct_terms.py` (longer phrases before shorter ones).
 
 ## Prereqs and useful info
 
@@ -80,14 +91,14 @@ python3 -m venv .venv
 
 ### YouTube HD download command
 
-Use browser cookies and alternate YouTube clients by default so adaptive HD formats are available. The default in the examples below is `edge`; swap for any browser `yt-dlp` supports (`brave`, `chrome`, `chromium`, `firefox`, `opera`, `safari`, `vivaldi`, `whale`) — pick the one where you're actually signed into YouTube.
+Use browser cookies and alternate YouTube clients by default so adaptive HD formats are available. The default is `edge`; swap for any browser `yt-dlp` supports (`brave`, `chrome`, `chromium`, `firefox`, `opera`, `safari`, `vivaldi`, `whale`) — pick the one where you're actually signed into YouTube.
 
 ```bash
 yt-dlp --cookies-from-browser edge \
   --extractor-args "youtube:player_client=web,mweb" \
   -f "bv*[height<=1080]+ba/b[height<=1080]" \
   --merge-output-format mp4 \
-  -o "work/sourceNNN.mp4" "<youtube_url>"
+  -o "work/NNN/sourceNNN.mp4" "<youtube_url>"
 ```
 
 `-f 18` (360p muxed mp4) is a fallback only when adaptive HD formats are unavailable.
@@ -102,7 +113,7 @@ You can pass a local `.mp4` path in place of a YouTube URL. The orchestrator log
 
 ### Orchestrator configuration
 
-The script accepts `AUTO_INSTALL_DEPS`, `COOKIE_BROWSER` (default `edge`), `WHISPER_MODEL` (default `small`), `SOURCE_LANG`/`TARGET_LANG` (defaults `en`/`ko`), `SUB_FONT`/`SUB_FONT_SIZE`, and `MEMORY_FILE`.
+The script accepts `AUTO_INSTALL_DEPS`, `COOKIE_BROWSER` (default `edge`), `WHISPER_MODEL` (default `small`), `SOURCE_LANG`/`TARGET_LANG` (defaults `en`/`ko`), `SUB_FONT`, `SUB_FONT_SIZE` (default **`24`**), and `MEMORY_FILE`.
 
 ### Authoritative spec
 
