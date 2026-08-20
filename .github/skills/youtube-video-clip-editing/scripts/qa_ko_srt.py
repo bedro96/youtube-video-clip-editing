@@ -41,6 +41,10 @@ from pathlib import Path
 # Longer keys are checked first so "Azure Friday" wins over "Azure".
 
 PRODUCTS: "dict[str, list[str]]" = {
+    # Zava is Microsoft's fictional demo company. Google Translate
+    # transliterates it as 자바, which is also how Java is written, so this
+    # entry is only safe because the English gate is case-sensitive.
+    "Zava Lending": ["자바렌딩", "자바 렌딩", "자바 대출"],
     "Azure Friday": ["푸른 금요일", "블루 프라이데이", "하늘색 금요일"],
     "Azure OpenAI": ["푸른 오픈AI", "하늘색 오픈에이아이"],
     "Microsoft Fabric": ["마이크로소프트 직물", "마이크로소프트 패브릭"],
@@ -67,6 +71,7 @@ PRODUCTS: "dict[str, list[str]]" = {
     "SharePoint": ["셰어포인트", "공유 지점", "쉐어포인트"],
     "OneDrive": ["원드라이브", "원 드라이브"],
     "Dataverse": ["데이터버스", "데이터 버스"],
+    "Zava": ["자바"],
     "Microsoft": ["마이크로소프트"],
     "GitHub": ["깃허브", "깃 허브"],
     "Copilot": ["부조종사", "코파일럿", "부기장"],
@@ -218,6 +223,24 @@ HONORIFIC_RULES.append(("가요", "갑니다"))
 HONORIFIC_RULES.append(("보자", "봅시다"))
 HONORIFIC_RULES.append(("하자", "합시다"))
 HONORIFIC_RULES.append(("가자", "갑시다"))
+
+# Nominalized ~음/~ㅁ endings. Google Translate frequently closes a cue with a
+# noun form ("처리할 수 있음") where the sentence is still running or where
+# 합쇼체 is expected. Only unambiguous verb tails are listed: 임/함 are omitted
+# because 책임 and 포함 are ordinary nouns. SENTENCE_END keeps mid-sentence
+# nominalizations intact, so "있음을 증명할 수 있습니다" is untouched.
+NOMINALIZED_TAILS: "list[tuple[str, str]]" = [
+    ("있었음", "있었습니다"),
+    ("없었음", "없었습니다"),
+    ("있음", "있습니다"),
+    ("없음", "없습니다"),
+    ("했음", "했습니다"),
+    ("였음", "였습니다"),
+    ("왔음", "왔습니다"),
+    ("갔음", "갔습니다"),
+    ("됨", "됩니다"),
+]
+HONORIFIC_RULES.extend(NOMINALIZED_TAILS)
 
 # --- 한다체 / 반말 -> 합쇼체, by Hangul jamo arithmetic ---
 #
@@ -431,6 +454,10 @@ def _ends_closed(word: str) -> bool:
     if not core:
         return False
     last = core[-1]
+    # An "-ng" tail is read as a ㅇ 받침 (Lending -> 렌딩), unlike a bare "g",
+    # which becomes an open 그 (blog -> 블로그).
+    if last in "gG" and len(core) >= 2 and core[-2] in "nN":
+        return True
     if last in _ALWAYS_CLOSED:
         return True
     if last in _VOWEL_DEPENDENT:
@@ -576,6 +603,21 @@ def qa(en_path: Path, ko_path: Path, out_path: Path, report_path: "Path | None")
 def self_test() -> int:
     cases = [
         # (english cue, korean cue, expected korean)
+        # Cue-final nominalization must become 합쇼체 ...
+        ("their nightly ETL batch jobs can be handled easily",
+         "배치 작업을 쉽게 처리할 수 있음",
+         "배치 작업을 쉽게 처리할 수 있습니다"),
+        # ... but a mid-sentence nominalization carrying a particle must not.
+        ("we can prove that we support it",
+         "지원할 수 있음을 증명할 수 있습니다.",
+         "지원할 수 있음을 증명할 수 있습니다."),
+        # 책임 ends in 임 and 포함 in 함; neither is a verb tail to conjugate.
+        ("This is our responsibility.",
+         "이것은 우리의 책임",
+         "이것은 우리의 책임"),
+        ("Zava Lending started with a simple idea.",
+         "자바렌딩은 단순한 아이디어에서 시작되었습니다.",
+         "Zava Lending은 단순한 아이디어에서 시작되었습니다."),
         ("This particular GQL is specifically Fabric.",
          "이 특정 GQL은 특히 직물입니다.",
          "이 특정 GQL은 특히 Fabric입니다."),
@@ -749,6 +791,7 @@ def self_test() -> int:
         "Fabric": True, "Copilot": True, "Excel": True, "Sentinel": True,
         "Azure": False, "GitHub": False, "Microsoft": False, "Word": False,
         "Spark": False, "Arc": False, "Teams": False, "Foundry": False,
+        "Lending": True, "Debug": False,
     }
     for word, expect in closed_expected.items():
         got = _ends_closed(word)

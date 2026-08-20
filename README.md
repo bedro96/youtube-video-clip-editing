@@ -155,6 +155,8 @@ The plain propositive `~자` ("let's …") is curated for the same reason, and t
 
 Most rules fire only at a sentence end (`.`, `!`, `?`, or end of line). Interjection-style endings such as `고마워요` are the exception: they are complete utterances that commonly sit mid-sentence before a comma, so they are allowed to match a comma too. Connective clauses (`우리는 작업해요, 그리고 …`) are deliberately left alone, because 합쇼체 mid-clause reads wrong.
 
+Cue-final **nominalized endings** are conjugated too: Google Translate often closes a cue with a noun form (`처리할 수 있음` → `처리할 수 있습니다`). Only unambiguous verb tails are listed — 있음/없음/했음/였음/왔음/갔음/됨 — because `임` and `함` are also ordinary noun endings (책임, 포함). The sentence-end guard keeps mid-sentence nominalizations intact, so `있음을 증명할 수 있습니다` is untouched.
+
 This uses Hangul jamo arithmetic rather than a word list, so verbs the author never anticipated are still conjugated correctly. Endings that are *already* polite — `입니다`, `습니다`, the propositive `~ㅂ시다` (봅시다), the interrogative `~ㄴ가요?` — are detected and left alone.
 
 ### The QA report

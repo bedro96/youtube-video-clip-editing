@@ -199,6 +199,8 @@ Substituting an English noun back in also breaks Korean particle agreement, so t
 
 The `~죠` family (거죠→것입니다, 겠죠→겠습니다) and the plain propositive `~자` (물어보자→물어봅시다) are **curated word lists, not suffix rules**. 자 is an extremely productive noun ending — 숫자, 글자, 참가자, 후보자 — so a generic rule would turn 참가자 into 참갑시다. The bare stems 보자/하자/가자 are additionally boundary-guarded to a standalone word for the same reason.
 
+Cue-final nominalizations (`처리할 수 있음` → `처리할 수 있습니다`) are conjugated from the same curated principle: only 있음/없음/했음/였음/왔음/갔음/됨 are listed, since 임/함 also end ordinary nouns (책임, 포함), and the rule fires only at a sentence end so `있음을 …` survives.
+
 Anything it cannot fix confidently is written to a report instead of being guessed at, so a human or agent reviews a short list rather than the whole file.
 
 **Example prompt:**

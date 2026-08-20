@@ -20,6 +20,12 @@ from pathlib import Path
 
 # Order matters: longer / more specific phrases first.
 CORRECTIONS: list[tuple[str, str]] = [
+    ("zava lending", "Zava Lending"),
+    # Whisper mishears these Azure SQL / AI Gateway terms in demo narration.
+    ("otp workload", "OLTP workload"),
+    ("azure i gateway", "Azure AI gateway"),
+    ("sb evoke external rest endpoint", "sp_invoke_external_rest_endpoint"),
+    ("sister procedure", "stored procedure"),
     ("microsoft azure", "Microsoft Azure"),
     ("azure openai", "Azure OpenAI"),
     ("azure devops", "Azure DevOps"),

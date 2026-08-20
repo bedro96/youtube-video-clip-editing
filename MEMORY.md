@@ -13,3 +13,6 @@
 013 - /Users/kunho/OneDrive - Microsoft/_LGE_DevCon/source/ms_internal/Internal6_06-MCP-WorkIQ.mp4
 014 - /Users/kunho/OneDrive - Microsoft/_LGE_DevCon/source/ms_internal/Internal7_07-GitHubCopilot-Skills.mp4
 015 - /Users/kunho/OneDrive - Microsoft/_LGE_DevCon/source/ms_internal/Internal8_08-GitHubCopilotCLI-Create-Agent.mp4
+016 - /Users/kunho/Library/CloudStorage/OneDrive-Microsoft/_LGE_DevCon/source/ms_internal/Internal10_Zava Lending - Azure SQL Database Hyperscale Demo.MP4
+017 - /Users/kunho/Library/CloudStorage/OneDrive-Microsoft/_LGE_DevCon/source/ms_internal/Internal11_Build content-aware agents at scale with Microsoft IQ.MP4
+018 - /Users/kunho/Library/CloudStorage/OneDrive-Microsoft/_LGE_DevCon/source/ms_internal/Internal12_Azure Databricks Demo - Microsoft Fabric, Foundry and Copilot Studio.MP4 [outcome removed: >100MB]
