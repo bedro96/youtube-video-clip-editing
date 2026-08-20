@@ -217,7 +217,7 @@ Anything it cannot fix confidently is written to a report instead of being guess
 
 Then **read the report** and hand-fix anything it flagged. It lists every automatic rewrite, any cue still in plain form, and any cue where the English named a product that never made it into the Korean.
 
-Verify the QA rules themselves with `qa_ko_srt.py --self-test` (37 assertions).
+Verify the QA rules themselves with `qa_ko_srt.py --self-test` (40 assertions).
 
 **Output:** `work/NNN/sourceNNN.ko.srt` (product names correct, 높임말, every cue ≤ 2 lines) plus `work/NNN/sourceNNN.ko.qa-report.txt`.
 

@@ -90,7 +90,7 @@ Each run gets its own `work/NNN/` folder. When you're done with a run and have t
 - **Default font size: 24.** Overrideable via `SUB_FONT_SIZE` but 24 is chosen deliberately.
 - **Bottom-anchored placement: `MarginV=15`.** Subtitles sit close to the bottom of the frame so the eye stays on the main image. Overrideable via `SUB_MARGIN_V`.
 - **Every cue is 2 lines maximum.** `scripts/wrap_srt.py` measures display width (CJK chars count as 2 units), targets ≤ 46 units per line, and either wraps to 2 lines or splits the cue in time.
-- **Product names are auto-corrected before translation.** `scripts/correct_terms.py` normalizes `Microsoft`, `Azure`, `GitHub`, `Copilot`, `Microsoft Azure`, `Azure OpenAI`, `GitHub Copilot`, `.NET`, `VS Code`, `Power BI`, `Microsoft 365`, `SQL Server`, `Windows`, `PowerShell`, `OpenAI`, `ChatGPT`, `TypeScript`, `JavaScript`, `Kubernetes`, `Docker`, `Linux`, `macOS`, and more, using case-insensitive matching and correctly-cased replacement.
+- **Product names are auto-corrected before translation.** `scripts/correct_terms.py` normalizes `Microsoft`, `Azure`, `GitHub`, `Copilot`, `Microsoft Azure`, `Azure OpenAI`, `GitHub Copilot`, `GitHub Actions`, `Pull Request`, `.NET`, `VS Code`, `Power BI`, `Microsoft 365`, `SQL Server`, `Windows`, `PowerShell`, `OpenAI`, `ChatGPT`, `TypeScript`, `JavaScript`, `Kubernetes`, `Docker`, `Linux`, `macOS`, and more, using case-insensitive matching and correctly-cased replacement.
 - **The Korean translation is QA'd before it is burned in.** See below.
 
 Add a new product name by appending it to the `CORRECTIONS` list in `scripts/correct_terms.py` (longer phrases before shorter ones) **and** to `PRODUCTS` in `scripts/qa_ko_srt.py`.
@@ -111,6 +111,9 @@ Google Translate happily turns product names into common nouns. Real examples pu
 | Playwright | 극작가 (dramatist) | **Playwright** |
 | Sentinel | 보초 (sentry) | **Sentinel** |
 | Foundry | 파운드리 | **Foundry** |
+| pull request | 끌어오기 요청 (literal "pulling request") | **Pull Request** |
+
+> **Capitalizing in Step 4 can prevent the mistranslation outright.** `pull request` was reaching Google Translate lowercase and coming back as 끌어오기 요청, which no Korean developer says. Adding `pull request → Pull Request` to `correct_terms.py` made the translator treat it as a proper noun and pass it through untouched — the `PRODUCTS` entry now only acts as a safety net. Prefer fixing Step 4 first; it is the cheaper lever.
 
 Restoration is **context-gated and case-sensitive**: a Korean word is only rewritten when the aligned English cue contains that product name capitalized. So "the **fabric** of the chair" keeps 직물, while "a **Fabric** workspace" becomes Fabric. This works because Step 4 has already normalized English casing.
 
@@ -128,6 +131,9 @@ Raw output mixes 합쇼체 (`~습니다`), 해요체 (`~해요`) and 한다체/�
 | 큰 실수를 저질렀다. | 큰 실수를 **저질렀습니다**. |
 | 꽤 멋지다. | 꽤 **멋집니다**. |
 | 다양한 전략이 있어요 | 다양한 전략이 **있습니다** |
+| 고마워요, Copilot. | **고맙습니다**, Copilot. |
+
+Most rules fire only at a sentence end (`.`, `!`, `?`, or end of line). Interjection-style endings such as `고마워요` are the exception: they are complete utterances that commonly sit mid-sentence before a comma, so they are allowed to match a comma too. Connective clauses (`우리는 작업해요, 그리고 …`) are deliberately left alone, because 합쇼체 mid-clause reads wrong.
 
 This uses Hangul jamo arithmetic rather than a word list, so verbs the author never anticipated are still conjugated correctly. Endings that are *already* polite — `입니다`, `습니다`, the propositive `~ㅂ시다` (봅시다), the interrogative `~ㄴ가요?` — are detected and left alone.
 

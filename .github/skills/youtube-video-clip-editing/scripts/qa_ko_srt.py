@@ -45,6 +45,7 @@ PRODUCTS: "dict[str, list[str]]" = {
     "Azure OpenAI": ["푸른 오픈AI", "하늘색 오픈에이아이"],
     "Microsoft Fabric": ["마이크로소프트 직물", "마이크로소프트 패브릭"],
     "GitHub Copilot": ["깃허브 부조종사", "깃허브 코파일럿", "GitHub 부조종사"],
+    "Pull Request": ["끌어오기 요청", "당기기 요청", "풀 리퀘스트", "풀 요청"],
     "Copilot Studio": ["부조종사 스튜디오", "코파일럿 스튜디오"],
     "Power BI": ["파워 BI", "전력 BI", "파워비아이"],
     "Key Vault": ["키 금고", "열쇠 금고", "키 보관소"],
@@ -141,6 +142,8 @@ HONORIFIC_RULES: "list[tuple[str, str]]" = [
     ("알아요", "압니다"),
     ("좋아요", "좋습니다"),
     ("많아요", "많습니다"),
+    ("고마워요", "고맙습니다"),
+    ("반가워요", "반갑습니다"),
     ("돼요", "됩니다"),
     ("해요", "합니다"),
     ("줘요", "줍니다"),
@@ -243,12 +246,21 @@ PLAIN_TAIL = re.compile(r"(?<!니)다[.!?\"'\)\]…]*$")
 
 SENTENCE_END = r"(?=[.!?…]|\s*$)"
 
+# Interjection-style endings are complete utterances on their own and often
+# appear mid-sentence before a comma ("고마워요, Copilot."), where
+# SENTENCE_END would never fire. Only these are allowed to match a comma;
+# widening SENTENCE_END globally would rewrite connective clauses, where
+# 합쇼체 mid-sentence reads wrong.
+CLAUSE_END_OK = {"고마워요", "반가워요"}
+CLAUSE_END = r"(?=[.!?…,]|\s*$)"
+
 
 def _apply_honorific(text: str) -> str:
     """Rewrite plain/informal sentence endings into 합쇼체."""
     for plain, polite in HONORIFIC_RULES:
         prefix = r"(?:(?<=^)|(?<=\s))" if plain in BOUNDARY_GUARDED else ""
-        text = re.sub(prefix + re.escape(plain) + SENTENCE_END, polite, text)
+        ending = CLAUSE_END if plain in CLAUSE_END_OK else SENTENCE_END
+        text = re.sub(prefix + re.escape(plain) + ending, polite, text)
 
     def conjugate(m: "re.Match[str]") -> str:
         return _conjugate_plain(m.group(1)) or m.group(1)
@@ -516,6 +528,24 @@ def self_test() -> int:
         # A bad form must not be matched inside a longer Hangul word.
         ("Give me the Word document.", "키워드를 알려주세요.", "키워드를 알려주세요."),
         ("Fabric is great.", "패브릭이 좋습니다.", "Fabric이 좋습니다."),
+        # Interjection before a comma: SENTENCE_END would not fire here.
+        (
+            "Thanks, Copilot.",
+            "고마워요, 코파일럿.",
+            "고맙습니다, Copilot.",
+        ),
+        # A connective clause must NOT be rewritten before its comma.
+        (
+            "We work on it, and then we ship.",
+            "우리는 작업해요, 그리고 배포합니다.",
+            "우리는 작업해요, 그리고 배포합니다.",
+        ),
+        # "pull request" is capitalized by Step 4, so the gate fires.
+        (
+            "Copilot creates a Pull Request.",
+            "Copilot이 끌어오기 요청을 생성합니다.",
+            "Copilot이 Pull Request를 생성합니다.",
+        ),
     ]
 
     failures = 0
