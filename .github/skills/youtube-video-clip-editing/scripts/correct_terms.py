@@ -21,6 +21,11 @@ from pathlib import Path
 # Order matters: longer / more specific phrases first.
 CORRECTIONS: list[tuple[str, str]] = [
     ("zava lending", "Zava Lending"),
+    # Whisper splits Lakehouse into two words, which disables the Korean
+    # product gate downstream (it saw no "Lakehouse" in the English cue).
+    ("lake houses", "Lakehouses"),
+    ("lake house", "Lakehouse"),
+    ("lakehouse", "Lakehouse"),
     # Whisper mishears these Azure SQL / AI Gateway terms in demo narration.
     ("otp workload", "OLTP workload"),
     ("azure i gateway", "Azure AI gateway"),

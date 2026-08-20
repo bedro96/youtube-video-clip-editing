@@ -63,7 +63,10 @@ PRODUCTS: "dict[str, list[str]]" = {
     "Visual Studio": ["비주얼 스튜디오", "시각 스튜디오"],
     "VS Code": ["VS 코드", "브이에스 코드"],
     "Data Factory": ["데이터 공장"],
-    "Lakehouse": ["호수 집", "호수집", "레이크하우스"],
+    "Lakehouse": [
+        "호수 집", "호수집", "레이크하우스", "레이크 하우스",
+        "호수 주택", "호수주택", "호수의 집", "호수 하우스",
+    ],
     # OneLake is the Fabric data lake. Whisper hears it as the two words
     # "one lake", which Google Translate then renders literally as a
     # quantity of water: 하나의 호수 / 한 호수.
@@ -618,6 +621,12 @@ def self_test() -> int:
         ("Zava Lending started with a simple idea.",
          "자바렌딩은 단순한 아이디어에서 시작되었습니다.",
          "Zava Lending은 단순한 아이디어에서 시작되었습니다."),
+        # Whisper's two-word "lake house" is normalized to Lakehouse in step 4,
+        # which is what lets this gate fire at all; particle follows the
+        # English reading (open syllable -> 를).
+        ("but if we look at each one of these Lakehouses,",
+         "이 호수 주택을 하나하나 살펴보면",
+         "이 Lakehouse를 하나하나 살펴보면"),
         ("This particular GQL is specifically Fabric.",
          "이 특정 GQL은 특히 직물입니다.",
          "이 특정 GQL은 특히 Fabric입니다."),
