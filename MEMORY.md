@@ -5,3 +5,4 @@
 005 - https://www.youtube.com/watch?v=bHL1jbWjJUc
 006 - https://www.youtube.com/watch?v=06j-d0gsREw [trim 00:00:25-00:15:15]
 007 - https://www.youtube.com/watch?v=6xHZJVnKkSs
+008 - https://www.youtube.com/watch?v=onVn-lnHZ9s

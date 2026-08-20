@@ -142,8 +142,19 @@ HONORIFIC_RULES: "list[tuple[str, str]]" = [
     ("알아요", "압니다"),
     ("좋아요", "좋습니다"),
     ("많아요", "많습니다"),
+    ("같아요", "같습니다"),
     ("고마워요", "고맙습니다"),
     ("반가워요", "반갑습니다"),
+    # ~네요 is 해요체. Curated rather than conjugated from a generic "네요"
+    # suffix, because a noun can end in 네 -- "우리 동네요" would otherwise be
+    # mangled into "동합니다".
+    ("보이네요", "보입니다"),
+    ("좋네요", "좋습니다"),
+    ("있네요", "있습니다"),
+    ("없네요", "없습니다"),
+    ("되네요", "됩니다"),
+    ("하네요", "합니다"),
+    ("나네요", "납니다"),
     ("돼요", "됩니다"),
     ("해요", "합니다"),
     ("줘요", "줍니다"),
@@ -254,9 +265,28 @@ SENTENCE_END = r"(?=[.!?…]|\s*$)"
 CLAUSE_END_OK = {"고마워요", "반가워요"}
 CLAUSE_END = r"(?=[.!?…,]|\s*$)"
 
+# First-person pronouns carry register too: 높임말 narration uses the humble
+# 저/제, not the plain 나/내. Left-anchored on a Hangul boundary so 하나는,
+# 안내가 and 내용 are never touched.
+#
+# Bare possessive "내" is deliberately excluded: "회사 내 규정" means "within
+# the company", not "my rules", and the two are not separable by pattern.
+# "내 브라우저" is left as-is -- mildly informal but idiomatic in subtitles.
+PRONOUN_RULES: "list[tuple[str, str]]" = [
+    ("나는", "저는"),
+    ("내가", "제가"),
+    ("나를", "저를"),
+    ("나도", "저도"),
+    ("나의", "저의"),
+    ("나와", "저와"),
+]
+
 
 def _apply_honorific(text: str) -> str:
     """Rewrite plain/informal sentence endings into 합쇼체."""
+    for plain, polite in PRONOUN_RULES:
+        text = re.sub(r"(?<![가-힣])" + plain, polite, text)
+
     for plain, polite in HONORIFIC_RULES:
         prefix = r"(?:(?<=^)|(?<=\s))" if plain in BOUNDARY_GUARDED else ""
         ending = CLAUSE_END if plain in CLAUSE_END_OK else SENTENCE_END
@@ -268,6 +298,18 @@ def _apply_honorific(text: str) -> str:
     return PLAIN_CLAUSE_RE.sub(conjugate, text)
 
 
+def _mentions_product(canonical: str, text: str) -> bool:
+    """Word-boundary-aware English gate for the product lexicon.
+
+    Plain substring matching let "Access" fire on "Accessibility" and would
+    let "Arc" fire on "Architecture". \\b is unusable here because ".NET"
+    starts with a non-word character, so we assert instead that the
+    neighbouring characters are not alphanumeric.
+    """
+    pattern = r"(?<![A-Za-z0-9])" + re.escape(canonical) + r"(?![A-Za-z0-9])"
+    return re.search(pattern, text) is not None
+
+
 def _restore_products(ko: str, en: str) -> "tuple[str, list[str]]":
     """Rewrite mistranslated product names, gated on the English cue.
 
@@ -277,7 +319,7 @@ def _restore_products(ko: str, en: str) -> "tuple[str, list[str]]":
     """
     notes: "list[str]" = []
     for canonical, wrong_forms in PRODUCTS.items():
-        if canonical not in en:
+        if not _mentions_product(canonical, en):
             continue
         for wrong in wrong_forms:
             # Left-anchored on a Hangul boundary so we never rewrite a
@@ -448,7 +490,7 @@ def qa(en_path: Path, ko_path: Path, out_path: Path, report_path: "Path | None")
 
         # Report product names present in English but absent from Korean.
         for canonical in PRODUCTS:
-            if canonical in en_text and canonical.lower() not in cue.text.lower():
+            if _mentions_product(canonical, en_text) and canonical.lower() not in cue.text.lower():
                 flagged.append(
                     f"[cue {cue.index}] missing product name '{canonical}'\n"
                     f"    en: {en_text.strip()}\n"
@@ -502,7 +544,8 @@ def self_test() -> int:
         ("This works well.", "이것은 잘 작동한다.", "이것은 잘 작동합니다."),
         ("It is a database.", "그것은 데이터베이스이다.", "그것은 데이터베이스입니다."),
         ("Here we go.", "그럼 우리는 간다.", "그럼 우리는 갑니다."),
-        ("I made a big mistake.", "나는 결국 큰 실수를 저질렀다.", "나는 결국 큰 실수를 저질렀습니다."),
+        # Also exercises the pronoun rule: 나는 -> 저는.
+        ("I made a big mistake.", "나는 결국 큰 실수를 저질렀다.", "저는 결국 큰 실수를 저질렀습니다."),
         ("That is pretty cool.", "이것은 꽤 멋지다.", "이것은 꽤 멋집니다."),
         ("This is how we navigate.", "탐색할 수 있는 방법은 이렇다.", "탐색할 수 있는 방법은 이렇습니다."),
         ("You can build one.", "당신은 하나를 만든다.", "당신은 하나를 만듭니다."),
@@ -546,6 +589,23 @@ def self_test() -> int:
             "Copilot이 끌어오기 요청을 생성합니다.",
             "Copilot이 Pull Request를 생성합니다.",
         ),
+        # "Access" must not fire inside "Accessibility" (word-boundary gate).
+        (
+            "Accessibility is important, though,",
+            "액세스 기능도 중요하지만",
+            "액세스 기능도 중요하지만",
+        ),
+        # ~네요 / 같아요 are 해요체 and must become 합쇼체.
+        ("I see another one.", "또 다른 것도 보이네요.", "또 다른 것도 보입니다."),
+        ("It seems they forgot.", "잊어버린 것 같아요.", "잊어버린 것 같습니다."),
+        # A noun ending in 네 must survive the 네요 rules untouched.
+        ("It's our neighborhood.", "우리 동네요.", "우리 동네요."),
+        # First-person pronouns take the humble form in 높임말 narration.
+        ("So I want to pay attention.", "그래서 나는 관심을 기울입니다.", "그래서 저는 관심을 기울입니다."),
+        ("when Copilot detected what I write", "Copilot이 내가 쓰는 내용을 감지합니다.", "Copilot이 제가 쓰는 내용을 감지합니다."),
+        # 하나는 / 안내가 / 내용 must not be mangled by the pronoun rules.
+        ("One of them is important.", "하나는 중요합니다.", "하나는 중요합니다."),
+        ("The guidance is helpful.", "안내가 유용합니다.", "안내가 유용합니다."),
     ]
 
     failures = 0
