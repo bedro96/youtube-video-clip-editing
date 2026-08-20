@@ -20,6 +20,7 @@ repo_root="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 
 AUTO_INSTALL_DEPS="${AUTO_INSTALL_DEPS:-0}"
 COOKIE_BROWSER="${COOKIE_BROWSER:-edge}"
+COOKIES_FILE="${COOKIES_FILE:-}"
 WHISPER_MODEL="${WHISPER_MODEL:-small}"
 SOURCE_LANG="${SOURCE_LANG:-en}"
 TARGET_LANG="${TARGET_LANG:-ko}"
@@ -114,7 +115,7 @@ else
 fi
 YTDLP="$(command -v yt-dlp)"
 
-if ! "${FFMPEG}" -hide_banner -filters 2>/dev/null | grep '^ .. subtitles ' >/dev/null; then
+if ! "${FFMPEG}" -hide_banner -filters 2>/dev/null | grep '^ ... subtitles ' >/dev/null; then
   echo "This ffmpeg build is missing the subtitles filter/libass support." >&2
   echo "On macOS, install with:" >&2
   echo "  brew tap homebrew-ffmpeg/ffmpeg && brew install homebrew-ffmpeg/ffmpeg/ffmpeg" >&2
@@ -193,9 +194,14 @@ echo "[info] Work directory: ${WORK_DIR}"
 if [[ "${SOURCE_INPUT}" =~ ^https?:// ]]; then
   echo "[2/8] Acquiring source from YouTube..."
   download_ok=0
+  if [[ -n "${COOKIES_FILE}" ]]; then
+    cookie_args=(--cookies "${COOKIES_FILE}")
+  else
+    cookie_args=(--cookies-from-browser "${COOKIE_BROWSER}")
+  fi
   for selector in "bv*[height<=1080]+ba/b[height<=1080]" "bv*[height<=720]+ba/b[height<=720]" "18"; do
     echo "[info] Trying yt-dlp selector: ${selector}"
-    if "${YTDLP}" -f "${selector}" --merge-output-format mp4 --cookies-from-browser "${COOKIE_BROWSER}" --extractor-args "youtube:player_client=web,mweb" -o "${SOURCE_MP4}" "${SOURCE_INPUT}"; then
+    if "${YTDLP}" -f "${selector}" --merge-output-format mp4 "${cookie_args[@]}" --remote-components ejs:github --extractor-args "youtube:player_client=web,mweb" -o "${SOURCE_MP4}" "${SOURCE_INPUT}"; then
       echo "[info] yt-dlp selector succeeded: ${selector}"
       download_ok=1
       break
