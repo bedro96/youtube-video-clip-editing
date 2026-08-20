@@ -47,6 +47,9 @@ PRODUCTS: "dict[str, list[str]]" = {
     "GitHub Copilot": ["깃허브 부조종사", "깃허브 코파일럿", "GitHub 부조종사"],
     "Pull Request": ["끌어오기 요청", "당기기 요청", "풀 리퀘스트", "풀 요청"],
     "Copilot Studio": ["부조종사 스튜디오", "코파일럿 스튜디오"],
+    "Copilot Skills": ["코파일럿 기술", "부조종사 기술", "Copilot 기술"],
+    "Copilot Skill": ["코파일럿 기술", "부조종사 기술", "Copilot 기술"],
+    "WorkIQ": ["워크IQ", "워크 IQ", "작업 IQ", "업무 IQ"],
     "Power BI": ["파워 BI", "전력 BI", "파워비아이"],
     "Key Vault": ["키 금고", "열쇠 금고", "키 보관소"],
     "Front Door": ["정문", "현관문", "앞문"],
@@ -96,6 +99,12 @@ PRODUCTS: "dict[str, list[str]]" = {
     "Runbook": ["실행 책"],
     "Container Apps": ["컨테이너 앱"],
     "Playwright": ["극작가", "각본가", "플레이라이트"],
+    # "agent" in this domain is a software agent. Google Translate reaches for
+    # the human senses -- 상담원 (call-centre rep), 대리인 (legal proxy),
+    # 요원 (operative) -- none of which is ever right here. Gated on a
+    # capitalized "Agent", which Step 4 now produces for "Coding Agent" /
+    # "Custom Agent" / "Agent Mode".
+    "Agent": ["상담원", "대리인", "요원"],
     "Terraform": ["테라폼"],
     "Kusto": ["쿠스토"],
     "Grafana": ["그라파나"],
@@ -110,8 +119,16 @@ PRODUCTS: "dict[str, list[str]]" = {
     "Rust": ["러스트"],
     "Ruby": ["루비"],
 }
-# Deliberately NOT in the lexicon: Go, Swift, Vue, Arc, Node.
-# Their Korean forms (가다, 빠른, 뷰, 호, 마디) are everyday words or short
+# The English gate is case-sensitive by default, because Step 4 normalizes
+# product casing and a lowercase word usually means the ordinary sense
+# (fabric the textile, outlook the viewpoint). A few terms are exempt: their
+# *Korean* mistranslation is impossible in developer content whatever the
+# English casing. 상담원 is a call-centre representative and 대리인 a legal
+# proxy -- neither is ever what "agent" means here, and Whisper writes the
+# word lowercase most of the time, which would otherwise disable the fix.
+CASE_INSENSITIVE_GATE = {"Agent"}
+
+# Deliberately NOT in the lexicon: Go, Swift, Vue, Arc, Node.# Their Korean forms (가다, 빠른, 뷰, 호, 마디) are everyday words or short
 # fragments of longer ones, so even a case-sensitive English gate produces
 # false positives -- "Go ahead and pick up the CLI" is not the Go language.
 
@@ -145,6 +162,29 @@ HONORIFIC_RULES: "list[tuple[str, str]]" = [
     ("같아요", "같습니다"),
     ("고마워요", "고맙습니다"),
     ("반가워요", "반갑습니다"),
+    # ~죠 / ~지요 is 해요체. 거죠 = 것이죠.
+    ("이거죠", "이것입니다"),
+    ("거죠", "것입니다"),
+    ("겠죠", "겠습니다"),
+    ("맞죠", "맞습니다"),
+    ("하죠", "합니다"),
+    ("되죠", "됩니다"),
+    ("있죠", "있습니다"),
+    ("없죠", "없습니다"),
+    ("이죠", "입니다"),
+    # --- plain propositive ~자 -> 합쇼체 propositive ~ㅂ시다 ---
+    # Spelled out as whole verbs rather than conjugated from a generic "자"
+    # suffix: 자 is an extremely productive noun ending (숫자, 사용자, 글자,
+    # 참가자, 후보자), and a suffix rule would turn 참가자 into 참갑시다.
+    # The bare stems 보자 / 하자 / 가자 are boundary-guarded below instead.
+    ("물어보자", "물어봅시다"),
+    ("살펴보자", "살펴봅시다"),
+    ("알아보자", "알아봅시다"),
+    ("해보자", "해봅시다"),
+    ("시작하자", "시작합시다"),
+    ("확인하자", "확인합시다"),
+    ("들어가자", "들어갑시다"),
+    ("만들자", "만듭시다"),
     # ~네요 is 해요체. Curated rather than conjugated from a generic "네요"
     # suffix, because a noun can end in 네 -- "우리 동네요" would otherwise be
     # mangled into "동합니다".
@@ -165,8 +205,15 @@ HONORIFIC_RULES: "list[tuple[str, str]]" = [
 # Rules whose pattern can also appear as the tail of an already-polite ending
 # must only fire as a standalone word. "가요" is the verb 가다, but "~ㄴ가요?"
 # / "~는가요?" is a polite interrogative -- rewriting it produced "필요한갑니다?".
-BOUNDARY_GUARDED = {"가요"}
+BOUNDARY_GUARDED = {"가요", "보자", "하자", "가자"}
 HONORIFIC_RULES.append(("가요", "갑니다"))
+# Bare propositive stems. Guarded to a standalone word so 후보자 does not
+# become 후봅시다 and 참가자 does not become 참갑시다. "하자" is also the noun
+# for "defect", which this guard does not disambiguate -- but a sentence that
+# is only the word 하자 is vanishingly rare in these demos.
+HONORIFIC_RULES.append(("보자", "봅시다"))
+HONORIFIC_RULES.append(("하자", "합시다"))
+HONORIFIC_RULES.append(("가자", "갑시다"))
 
 # --- 한다체 / 반말 -> 합쇼체, by Hangul jamo arithmetic ---
 #
@@ -306,8 +353,12 @@ def _mentions_product(canonical: str, text: str) -> bool:
     starts with a non-word character, so we assert instead that the
     neighbouring characters are not alphanumeric.
     """
-    pattern = r"(?<![A-Za-z0-9])" + re.escape(canonical) + r"(?![A-Za-z0-9])"
-    return re.search(pattern, text) is not None
+    flags = re.IGNORECASE if canonical in CASE_INSENSITIVE_GATE else 0
+    # A trailing plural "s" still refers to the same product: "a team of
+    # agents" must gate "Agent" just as "the agent" does. Without this,
+    # 요원 survived in run 009 purely because the English said "agents".
+    pattern = r"(?<![A-Za-z0-9])" + re.escape(canonical) + r"s?(?![A-Za-z0-9])"
+    return re.search(pattern, text, flags) is not None
 
 
 def _restore_products(ko: str, en: str) -> "tuple[str, list[str]]":
@@ -595,8 +646,59 @@ def self_test() -> int:
             "액세스 기능도 중요하지만",
             "액세스 기능도 중요하지만",
         ),
-        # ~네요 / 같아요 are 해요체 and must become 합쇼체.
-        ("I see another one.", "또 다른 것도 보이네요.", "또 다른 것도 보입니다."),
+        # --- plain propositive ~자 -> ~ㅂ시다 (run 010: 물어보자) ---
+        ("Let's ask Copilot.", "Copilot에게 물어보자.", "Copilot에게 물어봅시다."),
+        ("Let's look at the code.", "코드를 살펴보자.", "코드를 살펴봅시다."),
+        ("Let's start.", "이제 시작하자.", "이제 시작합시다."),
+        ("Let's go.", "그럼 가자.", "그럼 갑시다."),
+        # ...but a noun that merely ends in 자 must survive untouched.
+        ("Here is the candidate.", "이 사람이 후보자.", "이 사람이 후보자."),
+        ("That is the participant.", "그것이 참가자.", "그것이 참가자."),
+        ("Count the characters.", "이것은 숫자.", "이것은 숫자."),
+        # --- ~죠 is 해요체 (run 009: 거죠) ---
+        ("That is the point.", "그게 핵심인 거죠.", "그게 핵심인 것입니다."),
+        ("It will work.", "잘 되겠죠.", "잘 되겠습니다."),
+        ("That is right.", "그게 맞죠.", "그게 맞습니다."),
+        # --- product senses found in the fleet batch ---
+        # "agent" here is software, never a call-centre rep or legal proxy.
+        (
+            "Select a different Coding Agent.",
+            "다른 상담원을 선택하세요.",
+            "다른 Agent를 선택하세요.",
+        ),
+        (
+            "The Coding Agent runs it.",
+            "대리인이 실행합니다.",
+            "Agent가 실행합니다.",
+        ),
+        # ...a lowercase "agent" now ALSO fires, because 대리인/상담원 is never
+        # the right reading in developer content. This is a deliberate
+        # exemption from the case gate, not an oversight.
+        (
+            "the agent picks up the task",
+            "대리인이 작업을 가져갑니다.",
+            "Agent가 작업을 가져갑니다.",
+        ),
+        # WorkIQ must not be transliterated.
+        ("Introducing WorkIQ.", "워크IQ를 소개합니다.", "WorkIQ를 소개합니다."),
+        # Copilot Skills is a product; bare 기술 elsewhere must survive.
+        (
+            "This is about Copilot Skills.",
+            "이것은 Copilot 기술에 대한 것입니다.",
+            "이것은 Copilot Skills에 대한 것입니다.",
+        ),
+        (
+            "He has strong engineering skills.",
+            "그는 뛰어난 엔지니어링 기술을 가지고 있습니다.",
+            "그는 뛰어난 엔지니어링 기술을 가지고 있습니다.",
+        ),
+        # A plural in English still names the product (run 009: "agents").
+        (
+            "A team of agents spotted the gap.",
+            "한 팀의 요원이 공백을 발견했습니다.",
+            "한 팀의 Agent가 공백을 발견했습니다.",
+        ),
+        # ~네요 / 같아요 are 해요체 and must become 합쇼체.        ("I see another one.", "또 다른 것도 보이네요.", "또 다른 것도 보입니다."),
         ("It seems they forgot.", "잊어버린 것 같아요.", "잊어버린 것 같습니다."),
         # A noun ending in 네 must survive the 네요 rules untouched.
         ("It's our neighborhood.", "우리 동네요.", "우리 동네요."),

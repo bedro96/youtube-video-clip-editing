@@ -112,12 +112,17 @@ Google Translate happily turns product names into common nouns. Real examples pu
 | Sentinel | 보초 (sentry) | **Sentinel** |
 | Foundry | 파운드리 | **Foundry** |
 | pull request | 끌어오기 요청 (literal "pulling request") | **Pull Request** |
+| agent | 상담원 (call-centre rep) / 대리인 (legal proxy) | **Agent** |
+| WorkIQ | 워크IQ (transliteration) | **WorkIQ** |
+| Copilot Skills | Copilot 기술 (technology) | **Copilot Skills** |
 
 > **Capitalizing in Step 4 can prevent the mistranslation outright.** `pull request` was reaching Google Translate lowercase and coming back as 끌어오기 요청, which no Korean developer says. Adding `pull request → Pull Request` to `correct_terms.py` made the translator treat it as a proper noun and pass it through untouched — the `PRODUCTS` entry now only acts as a safety net. Prefer fixing Step 4 first; it is the cheaper lever.
 
 Restoration is **context-gated and case-sensitive**: a Korean word is only rewritten when the aligned English cue contains that product name capitalized. So "the **fabric** of the chair" keeps 직물, while "a **Fabric** workspace" becomes Fabric. This works because Step 4 has already normalized English casing.
 
-The English gate also matches on **word boundaries**, so `Access` no longer fires inside "Accessibility" (and `Arc` cannot fire inside "Architecture"). `\b` is unusable here because `.NET` begins with a non-word character, so the check asserts the neighbouring characters are not alphanumeric instead.
+The English gate also matches on **word boundaries**, so `Access` no longer fires inside "Accessibility" (and `Arc` cannot fire inside "Architecture"). `\b` is unusable here because `.NET` begins with a non-word character, so the check asserts the neighbouring characters are not alphanumeric instead. A trailing plural `s` is tolerated, so "a team of **agents**" still gates `Agent` — without that, 요원 shipped in run 009 purely because the English happened to be plural.
+
+> **A few terms are exempt from the case gate.** `Agent` is listed in `CASE_INSENSITIVE_GATE` because its mistranslations — 상담원 (call-centre representative), 대리인 (legal proxy), 요원 (operative) — are never correct in developer content, whatever the English casing. Whisper writes "agent" lowercase most of the time, so requiring capitalization would have disabled the fix in 14 of 16 cues. Use this exemption sparingly: it is only safe when the *Korean* word is impossible in this domain, which is not true of e.g. 기술 (a perfectly good word for "skill" or "technology").
 
 > **Steps 4 and 6 are coupled.** If a product name is missing from `correct_terms.py`, the English SRT keeps Whisper's lowercase spelling, the gate declines, and the mistranslation ships. This actually happened with `playwright` → 극작가. When a bad translation survives QA, check the English SRT casing before blaming the Korean lexicon — and add new terms to **both** scripts.
 
@@ -136,10 +141,14 @@ Raw output mixes 합쇼체 (`~습니다`), 해요체 (`~해요`) and 한다체/�
 | 고마워요, Copilot. | **고맙습니다**, Copilot. |
 | 또 다른 것도 보이네요 | 또 다른 것도 **보입니다** |
 | 잊어버린 것 같아요 | 잊어버린 것 **같습니다** |
+| 그게 핵심인 거죠. | 그게 핵심인 **것입니다**. |
+| Copilot에게 물어보자. | Copilot에게 **물어봅시다**. |
 
 Register also covers pronouns: 높임말 narration uses the humble 저/제, so `나는 → 저는` and `내가 → 제가`. These are left-anchored on a Hangul boundary so 하나는, 안내가 and 내용 are never touched. Bare possessive `내` is deliberately **not** rewritten — "회사 내 규정" means "within the company", not "my rules", and the two cannot be told apart by pattern.
 
 `~네요` forms are curated rather than derived from a generic `네요` suffix, because a noun can end in 네 — a blanket rule would turn "우리 동네요" into "동합니다".
+
+The plain propositive `~자` ("let's …") is curated for the same reason, and the hazard is worse: 자 is one of the most productive noun endings in Korean. A generic suffix rule would turn 참가자 (participant) into 참갑시다 and 후보자 (candidate) into 후봅시다. So whole verbs are listed (물어보자 → 물어봅시다, 살펴보자 → 살펴봅시다), and the bare stems 보자/하자/가자 are additionally boundary-guarded to standalone words. The `~죠` family (거죠 → 것입니다, 겠죠 → 겠습니다) is curated on the same principle.
 
 Most rules fire only at a sentence end (`.`, `!`, `?`, or end of line). Interjection-style endings such as `고마워요` are the exception: they are complete utterances that commonly sit mid-sentence before a comma, so they are allowed to match a comma too. Connective clauses (`우리는 작업해요, 그리고 …`) are deliberately left alone, because 합쇼체 mid-clause reads wrong.
 

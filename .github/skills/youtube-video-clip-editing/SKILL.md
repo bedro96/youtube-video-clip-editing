@@ -191,11 +191,13 @@ Runs the machine translation only. QA and the 2-line cap happen in Step 6.
 
 Machine translation makes two systematic mistakes on Microsoft content, and this step fixes both **before** the text is burned in.
 
-**1. Product names translated as common nouns.** Google Translate renders `Fabric` as 직물, `Copilot` as 부조종사, `Azure Friday` as 푸른 금요일, `Sentinel` as 보초, `Playwright` as 극작가. The lexicon in `qa_ko_srt.py` restores these. Restoration is **context-gated on the English cue and case-sensitive** — a capitalized `Fabric` in the English SRT means the product, while a lowercase `fabric` means the textile and is left alone. This works because Step 4 already normalized product-name casing.
+**1. Product names translated as common nouns.** Google Translate renders `Fabric` as 직물, `Copilot` as 부조종사, `Azure Friday` as 푸른 금요일, `Sentinel` as 보초, `Playwright` as 극작가, `agent` as 상담원 (call-centre rep) or 대리인 (legal proxy). The lexicon in `qa_ko_srt.py` restores these. Restoration is **context-gated on the English cue and case-sensitive** — a capitalized `Fabric` in the English SRT means the product, while a lowercase `fabric` means the textile and is left alone. This works because Step 4 already normalized product-name casing. The gate tolerates a trailing plural `s`, so "a team of agents" gates `Agent`. Terms listed in `CASE_INSENSITIVE_GATE` (currently just `Agent`) are exempt from the casing requirement, because their Korean mistranslation is impossible in developer content whatever the English casing.
 
 Substituting an English noun back in also breaks Korean particle agreement, so the script repairs it: 부조종사**를** → Copilot**을** (closed syllable), 푸른**은** → Azure**는** (open syllable).
 
-**2. Inconsistent speech level.** Output mixes 합쇼체 (`~습니다`), 해요체 (`~해요`) and 한다체/반말 (`~한다`). Subtitles must be uniformly **높임말**; the script conjugates everything to 합쇼체 by Hangul jamo arithmetic rather than a word list, so unseen verbs are handled: 간다→갑니다, 저질렀다→저질렀습니다, 멋지다→멋집니다, 만든다→만듭니다. Already-polite endings (`입니다`, `습니다`, `~ㅂ시다`, `~ㄴ가요?`) are detected and left untouched.
+**2. Inconsistent speech level.** Output mixes 합쇼체 (`~습니다`), 해요체 (`~해요`, `~죠`), 한다체/반말 (`~한다`) and the plain propositive (`~자`). Subtitles must be uniformly **높임말**; the script conjugates everything to 합쇼체 by Hangul jamo arithmetic rather than a word list, so unseen verbs are handled: 간다→갑니다, 저질렀다→저질렀습니다, 멋지다→멋집니다, 만든다→만듭니다. Already-polite endings (`입니다`, `습니다`, `~ㅂ시다`, `~ㄴ가요?`) are detected and left untouched.
+
+The `~죠` family (거죠→것입니다, 겠죠→겠습니다) and the plain propositive `~자` (물어보자→물어봅시다) are **curated word lists, not suffix rules**. 자 is an extremely productive noun ending — 숫자, 글자, 참가자, 후보자 — so a generic rule would turn 참가자 into 참갑시다. The bare stems 보자/하자/가자 are additionally boundary-guarded to a standalone word for the same reason.
 
 Anything it cannot fix confidently is written to a report instead of being guessed at, so a human or agent reviews a short list rather than the whole file.
 
@@ -217,7 +219,7 @@ Anything it cannot fix confidently is written to a report instead of being guess
 
 Then **read the report** and hand-fix anything it flagged. It lists every automatic rewrite, any cue still in plain form, and any cue where the English named a product that never made it into the Korean.
 
-Verify the QA rules themselves with `qa_ko_srt.py --self-test` (48 assertions).
+Verify the QA rules themselves with `qa_ko_srt.py --self-test` (64 assertions).
 
 **Output:** `work/NNN/sourceNNN.ko.srt` (product names correct, 높임말, every cue ≤ 2 lines) plus `work/NNN/sourceNNN.ko.qa-report.txt`.
 
@@ -326,4 +328,6 @@ Example:
 - Do not add short or everyday words to `PRODUCTS`. `Go`/`Swift`/`Vue`/`Arc`/`Node` are deliberately excluded because their Korean forms (가다, 빠른, 뷰, 호, 마디) are ordinary vocabulary or fragments of longer words — "Go ahead and pick up the CLI" is not the Go language. Korean matches are additionally left-anchored on a Hangul boundary so 키워드 never becomes 키Word.
 - Speech level: `qa_ko_srt.py` conjugates to 합쇼체 by jamo arithmetic, so new verbs need no configuration. Endings it must never touch (`~ㅂ시다` propositive, `~ㄴ가요?` interrogative, `~마다`, `~보다`) are listed in `NON_VERBAL_DA_TAILS` / `BOUNDARY_GUARDED` / `_is_propositive`.
 - After changing either lexicon or a conjugation rule, run `qa_ko_srt.py --self-test` before shipping.
+- Some defects are **Whisper mis-transcriptions, not translation bugs, and must not be lexiconized.** Run 009 produced 바닥 ("floor") for what the speaker plainly called a *flaw* — the surrounding cues say "this is exactly the kind of bug … spread across three different parts of the code base". A `floor → flaw` entry in `CORRECTIONS` would corrupt every legitimate use of "floor". Homophone errors like this get hand-fixed in the single affected cue, in both the `.en.srt` and the `.ko.srt`. Same for run 013's `ULA` (almost certainly `EULA`) — verify against the audio rather than adding a rule.
+- Likewise, an English *fragment* can be mistranslated as a Korean imperative: "…the severity to help me prioritize." became "우선순위를 정할 수 있도록 도와주세요." (a request). These are one-off MT artifacts with no stable pattern; fix the cue, do not invent a rule.
 - Tuning the 2-line budget: adjust `LINE_UNITS` in `scripts/wrap_srt.py` (default `46` display units; CJK chars count as 2).
