@@ -115,6 +115,7 @@ Google Translate happily turns product names into common nouns. Real examples pu
 | agent | 상담원 (call-centre rep) / 대리인 (legal proxy) | **Agent** |
 | WorkIQ | 워크IQ (transliteration) | **WorkIQ** |
 | Copilot Skills | Copilot 기술 (technology) | **Copilot Skills** |
+| one lake / One-Lake / onelake | 하나의 호수 (a single lake) | **OneLake** |
 
 > **Capitalizing in Step 4 can prevent the mistranslation outright.** `pull request` was reaching Google Translate lowercase and coming back as 끌어오기 요청, which no Korean developer says. Adding `pull request → Pull Request` to `correct_terms.py` made the translator treat it as a proper noun and pass it through untouched — the `PRODUCTS` entry now only acts as a safety net. Prefer fixing Step 4 first; it is the cheaper lever.
 
@@ -123,6 +124,8 @@ Restoration is **context-gated and case-sensitive**: a Korean word is only rewri
 The English gate also matches on **word boundaries**, so `Access` no longer fires inside "Accessibility" (and `Arc` cannot fire inside "Architecture"). `\b` is unusable here because `.NET` begins with a non-word character, so the check asserts the neighbouring characters are not alphanumeric instead. A trailing plural `s` is tolerated, so "a team of **agents**" still gates `Agent` — without that, 요원 shipped in run 009 purely because the English happened to be plural.
 
 > **A few terms are exempt from the case gate.** `Agent` is listed in `CASE_INSENSITIVE_GATE` because its mistranslations — 상담원 (call-centre representative), 대리인 (legal proxy), 요원 (operative) — are never correct in developer content, whatever the English casing. Whisper writes "agent" lowercase most of the time, so requiring capitalization would have disabled the fix in 14 of 16 cues. Use this exemption sparingly: it is only safe when the *Korean* word is impossible in this domain, which is not true of e.g. 기술 (a perfectly good word for "skill" or "technology").
+
+> **Multi-word product names are especially exposed.** Whisper hears `OneLake` as the two ordinary words "one lake", and Google Translate then renders it literally as 하나의 호수 ("a single lake"). Because the words are individually harmless, nothing upstream flags it. `correct_terms.py` now joins and capitalizes all of `one lake` / `one-lake` / `onelake` → `OneLake`, which is enough on its own to make the translator pass it through; the `PRODUCTS` entry is the safety net. Watch for this whenever a product name is a compound of two common words.
 
 > **Steps 4 and 6 are coupled.** If a product name is missing from `correct_terms.py`, the English SRT keeps Whisper's lowercase spelling, the gate declines, and the mistranslation ships. This actually happened with `playwright` → 극작가. When a bad translation survives QA, check the English SRT casing before blaming the Korean lexicon — and add new terms to **both** scripts.
 

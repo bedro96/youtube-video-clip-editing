@@ -60,6 +60,10 @@ PRODUCTS: "dict[str, list[str]]" = {
     "VS Code": ["VS 코드", "브이에스 코드"],
     "Data Factory": ["데이터 공장"],
     "Lakehouse": ["호수 집", "호수집", "레이크하우스"],
+    # OneLake is the Fabric data lake. Whisper hears it as the two words
+    # "one lake", which Google Translate then renders literally as a
+    # quantity of water: 하나의 호수 / 한 호수.
+    "OneLake": ["하나의 호수", "하나의호수", "한 호수", "호수 하나", "원 레이크", "월레이크"],
     "SharePoint": ["셰어포인트", "공유 지점", "쉐어포인트"],
     "OneDrive": ["원드라이브", "원 드라이브"],
     "Dataverse": ["데이터버스", "데이터 버스"],
@@ -697,6 +701,24 @@ def self_test() -> int:
             "A team of agents spotted the gap.",
             "한 팀의 요원이 공백을 발견했습니다.",
             "한 팀의 Agent가 공백을 발견했습니다.",
+        ),
+        # OneLake: Whisper writes "one lake", Step 4 joins and capitalizes it,
+        # then the gate can fire on the literal 하나의 호수 / 한 호수.
+        (
+            "These land into OneLake through a Fabric event house.",
+            "이들은 Fabric 이벤트 하우스를 통해 하나의 호수로 들어갑니다.",
+            "이들은 Fabric 이벤트 하우스를 통해 OneLake로 들어갑니다.",
+        ),
+        (
+            "We have the data from OneLake.",
+            "한 호수의 데이터가 있습니다.",
+            "OneLake의 데이터가 있습니다.",
+        ),
+        # ...but an ordinary lake, with no OneLake in the English, survives.
+        (
+            "We visited a lake and a mountain.",
+            "우리는 호수와 산을 방문했습니다.",
+            "우리는 호수와 산을 방문했습니다.",
         ),
         # ~네요 / 같아요 are 해요체 and must become 합쇼체.        ("I see another one.", "또 다른 것도 보이네요.", "또 다른 것도 보입니다."),
         ("It seems they forgot.", "잊어버린 것 같아요.", "잊어버린 것 같습니다."),

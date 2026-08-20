@@ -219,7 +219,7 @@ Anything it cannot fix confidently is written to a report instead of being guess
 
 Then **read the report** and hand-fix anything it flagged. It lists every automatic rewrite, any cue still in plain form, and any cue where the English named a product that never made it into the Korean.
 
-Verify the QA rules themselves with `qa_ko_srt.py --self-test` (64 assertions).
+Verify the QA rules themselves with `qa_ko_srt.py --self-test` (67 assertions).
 
 **Output:** `work/NNN/sourceNNN.ko.srt` (product names correct, 높임말, every cue ≤ 2 lines) plus `work/NNN/sourceNNN.ko.qa-report.txt`.
 
@@ -328,6 +328,7 @@ Example:
 - Do not add short or everyday words to `PRODUCTS`. `Go`/`Swift`/`Vue`/`Arc`/`Node` are deliberately excluded because their Korean forms (가다, 빠른, 뷰, 호, 마디) are ordinary vocabulary or fragments of longer words — "Go ahead and pick up the CLI" is not the Go language. Korean matches are additionally left-anchored on a Hangul boundary so 키워드 never becomes 키Word.
 - Speech level: `qa_ko_srt.py` conjugates to 합쇼체 by jamo arithmetic, so new verbs need no configuration. Endings it must never touch (`~ㅂ시다` propositive, `~ㄴ가요?` interrogative, `~마다`, `~보다`) are listed in `NON_VERBAL_DA_TAILS` / `BOUNDARY_GUARDED` / `_is_propositive`.
 - After changing either lexicon or a conjugation rule, run `qa_ko_srt.py --self-test` before shipping.
-- Some defects are **Whisper mis-transcriptions, not translation bugs, and must not be lexiconized.** Run 009 produced 바닥 ("floor") for what the speaker plainly called a *flaw* — the surrounding cues say "this is exactly the kind of bug … spread across three different parts of the code base". A `floor → flaw` entry in `CORRECTIONS` would corrupt every legitimate use of "floor". Homophone errors like this get hand-fixed in the single affected cue, in both the `.en.srt` and the `.ko.srt`. Same for run 013's `ULA` (almost certainly `EULA`) — verify against the audio rather than adding a rule.
+- Some defects are **Whisper mis-transcriptions, not translation bugs, and must not be lexiconized.** Run 009 produced 바닥 ("floor") for what the speaker plainly called a *flaw* — the surrounding cues say "this is exactly the kind of bug … spread across three different parts of the code base". A `floor → flaw` entry in `CORRECTIONS` would corrupt every legitimate use of "floor". Homophone errors like this get hand-fixed in the single affected cue, in both the `.en.srt` and the `.ko.srt`. Same for run 013's `ULA` (almost certainly `EULA`) — verify against the audio rather than adding a rule. Runs 013/014 had "anything that lives **in Outlook, Teams**" transcribed as "lives **and outlooks, teens**", which translated to 전망 ("a view") and 청소년 ("adolescents"); "teens" is an ordinary English word, so no lexicon entry could safely catch it.
+- **Compound product names made of two common words are the highest-risk category.** `OneLake` arrives from Whisper as "one lake" and translates to 하나의 호수. Neither word looks wrong in isolation, so nothing upstream flags it. Add every spacing/hyphenation variant to `CORRECTIONS` (`one lake`, `one-lake`, `onelake`) so Step 4 joins them before translation.
 - Likewise, an English *fragment* can be mistranslated as a Korean imperative: "…the severity to help me prioritize." became "우선순위를 정할 수 있도록 도와주세요." (a request). These are one-off MT artifacts with no stable pattern; fix the cue, do not invent a rule.
 - Tuning the 2-line budget: adjust `LINE_UNITS` in `scripts/wrap_srt.py` (default `46` display units; CJK chars count as 2).
