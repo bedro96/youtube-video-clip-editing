@@ -21,3 +21,5 @@
 023 - https://www.youtube.com/watch?v=mEM0pg-NtOk
 024 - https://www.youtube.com/watch?v=6OzwwYLK8ys [outcome removed: >100MB]
 025 - https://www.youtube.com/watch?v=I4_V8-Q7Yo8
+026 - https://www.youtube.com/watch?v=IdKqLY6iT8w
+027 - https://www.youtube.com/watch?v=CUsJrodGnxw

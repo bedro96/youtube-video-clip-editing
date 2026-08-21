@@ -27,6 +27,8 @@
 | 20 | Microsoft 365 Copilot (Co-Work) | Copilot Co-Work의 실제 시연으로, WorkIQ를 기반으로 백그라운드에서 장시간 작업을 수행하고 문서·파일 작성을 돕는 기능을 보여줍니다. Anthropic Claude 모델과의 협업 구조도 함께 설명합니다. | 00:06:21 | `final_output023.mp4` |
 | 21 | Microsoft Foundry | Anthropic과 공동 진행하는 튜토리얼 시리즈로, Microsoft Foundry에서 Claude 모델에 처음 연결하고 요청을 보내는 과정을 처음부터 안내합니다. | 00:18:05 | `final_output024.mp4` |
 | 22 | Microsoft 365 Copilot (Autopilot) | Microsoft 365에 새로 도입된 상시 실행형 자율 에이전트 "오토파일럿"과 그 첫 사례인 Scout를 소개합니다. 팀 채팅·Outlook·회의 조율 등 업무 전반에서 자율적으로 동작하는 방식을 설명합니다. | 00:03:44 | `final_output025.mp4` |
+| 23 | Microsoft Fabric & NVIDIA Omniverse | NVIDIA Omniverse 라이브러리와 Microsoft Fabric을 통합해 실시간 운영 데이터, 비즈니스 의미 체계, 물리 시뮬레이션을 연결하고 예측 유지보수·안전 검사·자율 물류·디지털 트윈 등의 Physical AI 시나리오를 구현하는 파트너십을 소개합니다. | 00:02:46 | `final_output026.mp4` |
+| 24 | Microsoft Azure (Azure Local) | Azure의 적응형 클라우드 접근 방식을 소개하며, 소형 폼팩터 Linux 인프라, Foundry Local, Azure IoT Operations를 통해 물리적 시스템에 AI 인텔리전스를 내장하는 방법을 설명합니다. | 00:06:13 | `final_output027.mp4` |
 
 ## 참고 사항
 
