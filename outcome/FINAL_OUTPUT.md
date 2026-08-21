@@ -20,15 +20,29 @@
 | 13 | GitHub Copilot CLI | WorkIQ MCP 서버를 설치하고 Microsoft 365 Copilot 데이터에 연결하는 과정을 시연합니다. | 00:06:06 | `final_output013.mp4` |
 | 14 | GitHub Copilot CLI | WorkIQ MCP 연동에 이어, 반복 작업을 자동화하는 Skill을 직접 만들어 봅니다. | 00:10:48 | `final_output014.mp4` |
 | 15 | GitHub Copilot CLI | Skill과 WorkIQ를 조합해 사용자 지정 에이전트를 생성하는 워크플로를 시연합니다. | 00:05:25 | `final_output015.mp4` |
+| 16 | Azure SQL Database | Zava Lending 시나리오를 통해 Azure SQL Database Hyperscale의 대규모 확장 기능을 시연합니다. | 00:09:51 | `final_output016.mp4` |
+| 17 | Microsoft IQ | Microsoft IQ를 활용해 콘텐츠 인식 에이전트를 대규모로 구축하는 방법을 다룹니다. | 00:26:31 | `final_output017.mp4` |
+| 18 | Microsoft AI | 이미지·음성·전사·추론·코딩 전반에 걸쳐 새롭게 공개된 Microsoft AI 모델 패밀리를 소개하며, 사람을 위한 AI라는 철학을 강조합니다. | 00:01:45 | `final_output020.mp4` |
+| 19 | Microsoft 365 Copilot (Co-Work) | Copilot Co-Work의 정식 출시(GA)를 발표하며, 채팅을 넘어 업무 흐름 속에서 직접 작업을 수행하는 다음 단계의 AI를 소개합니다. | 00:06:39 | `final_output021.mp4` |
+| 20 | Microsoft 365 Copilot (Co-Work) | Copilot Co-Work의 실제 시연으로, WorkIQ를 기반으로 백그라운드에서 장시간 작업을 수행하고 문서·파일 작성을 돕는 기능을 보여줍니다. Anthropic Claude 모델과의 협업 구조도 함께 설명합니다. | 00:06:21 | `final_output023.mp4` |
+| 21 | Microsoft Foundry | Anthropic과 공동 진행하는 튜토리얼 시리즈로, Microsoft Foundry에서 Claude 모델에 처음 연결하고 요청을 보내는 과정을 처음부터 안내합니다. | 00:18:05 | `final_output024.mp4` |
+| 22 | Microsoft 365 Copilot (Autopilot) | Microsoft 365에 새로 도입된 상시 실행형 자율 에이전트 "오토파일럿"과 그 첫 사례인 Scout를 소개합니다. 팀 채팅·Outlook·회의 조율 등 업무 전반에서 자율적으로 동작하는 방식을 설명합니다. | 00:03:44 | `final_output025.mp4` |
 
 ## 참고 사항
 
 - **Seq 13과 Seq 14는 내용이 일부 중복됩니다.** `final_output014.mp4`의 앞부분 약 6분은
   `final_output013.mp4`와 동일한 WorkIQ MCP 설치 내용이며, 이후 약 4분 40초 동안 Skill 생성
   내용이 이어집니다. 두 편을 연속으로 상영할 경우 중복 구간을 고려하시기 바랍니다.
+- **Seq 19와 Seq 20은 같은 발표자(Charles Lamana)의 Copilot Co-Work 관련 영상이지만 서로 다른
+  내용입니다.** Seq 19는 정식 출시(GA) 발표문이고, Seq 20은 실제 기능 시연입니다. 중복이 아니므로
+  두 편 모두 보존합니다.
 - **Seq 4(`final_output004.mp4`)는 Git 저장소에 포함되어 있지 않습니다.** 파일 크기가 약 307 MB로
   100 MB 보존 한도를 초과하여 저장소에서는 제외되었으며(`MEMORY.md`의 `[outcome removed: >100MB]`
   표기 참조), 실제 파일은 이 배포 폴더(OneDrive)에만 존재합니다. 원본은 약 1시간 길이이며
   00:01:30–00:59:51 구간만 사용했습니다.
+- **Seq 21(`final_output024.mp4`)도 Git 저장소에 포함되어 있지 않습니다.** 파일 크기가 약 127 MB로
+  100 MB 보존 한도를 초과하여 저장소에서는 제외되었습니다(`MEMORY.md`의 `[outcome removed: >100MB]`
+  표기 참조). 원본 전체(약 18분)를 그대로 사용했으며 트리밍은 없었습니다. 자막(.srt) 파일은 보존되어
+  있으므로 필요 시 원본을 다시 내려받아 재생성할 수 있습니다.
 - 각 산출물의 원본 출처(YouTube URL 또는 로컬 경로)는 저장소 루트의 `MEMORY.md`에서
   동일한 3자리 실행 번호로 확인할 수 있습니다.
